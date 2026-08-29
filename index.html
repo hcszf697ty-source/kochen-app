@@ -59,6 +59,8 @@ function renderLogin(){
 }
 let activeTab='today';
 let recipeOpen=null;
+let cookMode=null;
+let cookStep=0;
 
 function renderToday(){
   document.getElementById('app').innerHTML=`<main class="shell">
@@ -226,6 +228,99 @@ const recipeData = {
   }
 };
 
+
+const tm6Cook = {
+  blumenkohl: {
+    title: 'Blumenkohlsuppe',
+    adaptation: 'Heute ohne Pastinake',
+    steps: [
+      {
+        title:'Vorbereiten',
+        text:'Blumenkohl in kleine Röschen teilen. Zwiebel abziehen und vierteln.',
+        setting:'Vorbereitung',
+        book:'Im Buch: Blumenkohl in kleine Röschen teilen, Zwiebel klein schneiden. Pastinake vorbereiten – diese entfällt heute.'
+      },
+      {
+        title:'Zwiebel zerkleinern',
+        text:'Zwiebel in den Mixtopf geben und zerkleinern. Mit dem Spatel nach unten schieben.',
+        setting:'5 Sek. · Stufe 5',
+        book:'TM6-Übertragung des im Buch vorgesehenen Kleinschneidens.'
+      },
+      {
+        title:'Andünsten',
+        text:'Einen kleinen Teil der Gemüsebrühe zur Zwiebel geben und andünsten.',
+        setting:'2 Min. · 120 °C · Stufe 1',
+        book:'Das Buch sieht etwa 2 Minuten Andünsten in etwas Gemüsebrühe vor. Temperatur und Stufe sind die TM6-Übertragung.'
+      },
+      {
+        title:'Suppe kochen',
+        text:'Restliche Gemüsebrühe, Blumenkohlröschen und Milch zugeben und garen.',
+        setting:'10 Min. · 100 °C · Stufe 1',
+        book:'Das Buch nennt ca. 10 Minuten Köcheln. Temperatur und Stufe sind die TM6-Übertragung.'
+      },
+      {
+        title:'Pürieren',
+        text:'Nach dem Garen die Suppe pürieren. Wegen der heißen Suppe die Geschwindigkeit schrittweise erhöhen.',
+        setting:'30 Sek. · Stufe 5 → 8',
+        book:'Das Buch verlangt anschließendes Pürieren. Dauer und Stufen sind die TM6-Übertragung.'
+      },
+      {
+        title:'Abschmecken',
+        text:'Mit Salz, Pfeffer und Zitronensaft nach Geschmack würzen. Schnittlauch darübergeben und servieren.',
+        setting:'Fertig',
+        book:'Entspricht dem Abschluss des Buchrezepts.'
+      }
+    ]
+  }
+};
+
+function startCook(key){
+  if(!tm6Cook[key]){
+    alert('Für dieses Rezept ist der TM6-Kochmodus noch nicht hinterlegt.');
+    return;
+  }
+  cookMode=key;
+  cookStep=0;
+  renderCookMode();
+}
+
+function renderCookMode(){
+  const c=tm6Cook[cookMode], s=c.steps[cookStep];
+  const pct=Math.round(((cookStep+1)/c.steps.length)*100);
+  document.getElementById('app').innerHTML=`<main class="shell">
+    <header>
+      <div><div class="eyebrow">TM6-KOCHMODUS · ${cookStep+1}/${c.steps.length}</div><h1 style="font-size:38px">${c.title}</h1></div>
+      <div class="actions"><button class="icon" onclick="cookMode=null;recipeOpen='blumenkohl';renderRecipes()">×</button></div>
+    </header>
+
+    <div style="height:8px;background:#e5e6df;border-radius:999px;overflow:hidden;margin:6px 0 18px">
+      <div style="height:100%;width:${pct}%;background:#294936;border-radius:999px"></div>
+    </div>
+
+    <section class="notice" style="background:#fff4d9;border-color:#ead39a">
+      <div><b>Anpassung</b><br>${c.adaptation}</div>
+    </section>
+
+    <section class="item" style="margin-top:18px;min-height:300px;display:flex;align-items:center">
+      <div class="body" style="width:100%">
+        <div class="eyebrow">SCHRITT ${cookStep+1}</div>
+        <h2 style="font-size:32px;margin:8px 0 18px">${s.title}</h2>
+        <p class="desc" style="font-size:22px;line-height:1.45">${s.text}</p>
+        <div style="margin-top:26px;padding:20px;border-radius:20px;background:#edf3e9;text-align:center;font-size:24px;font-weight:800">${s.setting}</div>
+      </div>
+    </section>
+
+    <section class="notice" style="margin-top:14px">
+      <div><b>Kochbuch → TM6</b><br><span class="muted">${s.book}</span></div>
+    </section>
+
+    <div style="display:grid;grid-template-columns:${cookStep===0?'1fr':'1fr 2fr'};gap:12px;margin-top:18px">
+      ${cookStep>0?`<button onclick="cookStep--;renderCookMode()" style="padding:18px;border:1px solid #d9d7ca;border-radius:20px;background:#fffdf8;font-size:18px;font-weight:700">Zurück</button>`:''}
+      <button onclick="${cookStep<c.steps.length-1?'cookStep++;renderCookMode()':"cookMode=null;recipeOpen='blumenkohl';renderRecipes()"}" style="padding:18px;border:0;border-radius:20px;background:#183425;color:white;font-size:20px;font-weight:800">${cookStep<c.steps.length-1?'Weiter':'Fertig'}</button>
+    </div>
+  </main>`;
+}
+
 function renderRecipes(){
   if(recipeOpen) return renderRecipeDetail(recipeOpen);
 
@@ -273,7 +368,7 @@ function renderRecipeDetail(key){
   </section>`:
   `<section class="notice" style="margin-top:14px"><div><b>Hinweis</b><br><span class="muted">${r.note}</span></div></section>`}
 
-  <button onclick="alert('TM6-Kochmodus kommt als nächster Schritt.')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">
+  <button onclick="startCook('${key}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">
     Im TM6 kochen
   </button>
 
