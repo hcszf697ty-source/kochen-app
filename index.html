@@ -24,7 +24,7 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 <div id="app"></div>
 <script>
 const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
-let rows=[], filter='all', query='', userId='', msg='';
+let rows=[], filter='all', query='', userId='', householdId='', msg='';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function formatBuy(r){
@@ -95,12 +95,46 @@ async function toggle(id){
 }
 async function loadRows(){
   msg='';
-  const {data,error}=await sb.from('shopping_items').select('id,food_id,required_quantity,required_unit,covered_by_inventory,covered_by_delivery,quantity_to_buy,package_size,package_unit,packages_to_buy,category,checked,manually_added,needed_by,foods(name)').order('needed_by',{ascending:true});
-  if(error){msg=/row-level security|permission/i.test(error.message)?'Du bist angemeldet, aber diesem Supabase-Nutzer ist noch kein Haushalt zugeordnet.':error.message;rows=[]}
-  else {rows=data||[]; if(!rows.length)msg='Noch keine Einkaufsposten für diesen Haushalt vorhanden.'}
+  rows=[];
+  householdId='';
+
+  const {data:member,error:memberError}=await sb
+    .from('household_members')
+    .select('household_id')
+    .eq('user_id',userId)
+    .limit(1)
+    .maybeSingle();
+
+  if(memberError){
+    msg='Haushaltszuordnung konnte nicht geprüft werden: '+memberError.message;
+    renderApp();
+    return;
+  }
+
+  if(!member?.household_id){
+    msg='Du bist angemeldet, aber diesem Supabase-Nutzer ist noch kein Haushalt zugeordnet.';
+    renderApp();
+    return;
+  }
+
+  householdId=member.household_id;
+
+  const {data,error}=await sb
+    .from('shopping_items')
+    .select('id,household_id,food_id,required_quantity,required_unit,covered_by_inventory,covered_by_delivery,quantity_to_buy,package_size,package_unit,packages_to_buy,category,checked,manually_added,needed_by,foods(name)')
+    .eq('household_id',householdId)
+    .order('needed_by',{ascending:true});
+
+  if(error){
+    msg='Einkaufsliste konnte nicht geladen werden: '+error.message;
+    rows=[];
+  } else {
+    rows=data||[];
+    if(!rows.length) msg='Haushalt erkannt – aktuell sind keine Einkaufsposten vorhanden.';
+  }
   renderApp();
 }
 sb.auth.getSession().then(async ({data})=>{if(data.session){userId=data.session.user.id;await loadRows()}else renderLogin()});
-sb.auth.onAuthStateChange((_e,session)=>{if(session){userId=session.user.id;setTimeout(loadRows,0)}else{rows=[];userId='';renderLogin()}});
+sb.auth.onAuthStateChange((_e,session)=>{if(session){userId=session.user.id;setTimeout(loadRows,0)}else{rows=[];householdId='';userId='';renderLogin()}});
 </script>
 </body></html>
