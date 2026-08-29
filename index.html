@@ -18,6 +18,8 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 .list{display:grid;gap:10px}.item{display:flex;gap:12px;background:var(--card);padding:14px;border-radius:20px;border:1px solid #ffffff;box-shadow:0 4px 18px #00000008}.item.done{opacity:.55}.check{width:27px;height:27px;border:2px solid #8b9a89;border-radius:9px;background:white;flex:0 0 auto}.item.done .check{background:var(--green);color:white;border-color:var(--green)}.body{flex:1;min-width:0}.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.top h2{font-size:17px;margin:1px 0 5px}.pill{background:var(--sage);padding:6px 9px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}.pill.warn{background:#f4dfbd}.desc,.meta{font-size:13px;color:var(--muted);margin:0}.meta{margin-top:6px}
 .login{max-width:430px;margin:11vh auto 0;background:var(--card);padding:26px;border-radius:28px;box-shadow:0 18px 50px #00000012}.login h1{font-size:34px}.muted{color:var(--muted)}label{display:grid;gap:6px;margin:12px 0;font-weight:700}label input{border:1px solid var(--line);border-radius:13px;padding:12px;background:white}.primary,.secondary{width:100%;border:0;border-radius:14px;padding:13px;font-weight:800;margin-top:8px}.primary{background:var(--green);color:white}.secondary{background:var(--sage);color:var(--ink)}.msg{margin-top:12px;font-size:13px;color:#775c27;background:#fff5d9;padding:10px;border-radius:12px}
 .bottom{position:fixed;left:10px;right:10px;bottom:10px;max-width:740px;margin:auto;background:#fffdf8eF;backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:24px;padding:12px 10px;display:grid;grid-template-columns:repeat(5,1fr);text-align:center;font-size:12px;box-shadow:0 12px 30px #0002}.bottom b{color:var(--green)}.hidden{display:none}
+
+.shell{padding-bottom:170px!important}
 </style>
 </head>
 <body>
@@ -56,6 +58,7 @@ function renderLogin(){
   <div id="loginmsg" class="msg hidden"></div></section></main>`;
 }
 let activeTab='today';
+let recipeOpen=null;
 
 function renderToday(){
   document.getElementById('app').innerHTML=`<main class="shell">
@@ -95,7 +98,7 @@ function renderToday(){
     <div><b>Heute wichtig</b><br>1 Blumenkohl für Sonntag verwenden. Biokisten-Blumenkohl kommt erst Montag.</div>
   </section>
 
-  <nav class="bottom"><b onclick="activeTab='today';renderApp()">Heute</b><span onclick="activeTab='plan';renderApp()">Plan</span><span>Rezepte</span><span>Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
+  <nav class="bottom"><b onclick="activeTab='today';renderApp()">Heute</b><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span>Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
 
 
@@ -143,7 +146,138 @@ function renderPlan(){
     <div><b>Planlogik</b><br>Vorrat zuerst · dann Biokiste, wenn sie rechtzeitig kommt · erst danach Einkauf.</div>
   </section>
 
-  <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><b onclick="activeTab='plan';renderApp()">Plan</b><span>Rezepte</span><span>Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
+  <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><b onclick="activeTab='plan';renderApp()">Plan</b><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span>Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
+}
+
+
+const recipeData = {
+  quark: {
+    title: 'Quark mit Beeren',
+    phase: 'Zünder · Turbo',
+    meta: 'Frühstück · 1 Portion',
+    ingredients: [
+      '250 g Quark 20 %',
+      '3 EL Milch 1,5 %',
+      '150 g Beeren',
+      'Zimt'
+    ],
+    adaptation: '',
+    note: 'Im aktuellen Plan nur für die 2 Erwachsenen.'
+  },
+  blumenkohl: {
+    title: 'Blumenkohlsuppe',
+    phase: 'Zünder',
+    meta: 'Mittag / Abend',
+    ingredients: [
+      '450 ml Brühe',
+      '1 Blumenkohl',
+      '100 ml Milch',
+      '1 Pastinake',
+      '1 Zwiebel',
+      '1 EL Schnittlauch',
+      'Zitronensaft',
+      'Salz und Pfeffer'
+    ],
+    adaptation: 'Heute ohne Pastinake.',
+    note: 'Das Originalrezept bleibt unverändert; die Anpassung gilt nur für euren aktuellen Plan.'
+  },
+  geniesser: {
+    title: 'Genießer-Salat',
+    phase: 'Turbo',
+    meta: 'Mittag · Lunchbox geeignet',
+    ingredients: [
+      '8 Eier',
+      '1 Blattsalat',
+      '3 rote Paprika',
+      '4 Tomaten',
+      '400 g Gurke',
+      '200 g Schinken',
+      '100 g Käse 30 %',
+      '4 EL Essig',
+      '100 ml Brühe',
+      '1 EL Öl',
+      'Salatkräuter / Kresse',
+      'Salz und Pfeffer'
+    ],
+    adaptation: '',
+    note: 'Für glutenfreie Zubereitung Schinken und Brühe entsprechend auswählen.'
+  },
+  feta: {
+    title: 'Gebackener Feta auf Paprika-Tomaten',
+    phase: 'Turbo',
+    meta: 'Abendessen',
+    ingredients: [
+      '1 große Zwiebel',
+      '2 Knoblauchzehen',
+      '3 rote Paprika',
+      '1 EL Olivenöl',
+      '400 g stückige Tomaten mit Kräutern',
+      '3 EL Tomatenmark',
+      'Italienische Kräuter',
+      'Salz und Pfeffer',
+      'Zucker',
+      'Paprikapulver',
+      '4 Feta / Schafskäse à 180 g',
+      'Thymian',
+      'Rosmarin'
+    ],
+    adaptation: '',
+    note: 'Glutenfreie Gewürzmischungen verwenden, falls Mischprodukte eingesetzt werden.'
+  }
+};
+
+function renderRecipes(){
+  if(recipeOpen) return renderRecipeDetail(recipeOpen);
+
+  document.getElementById('app').innerHTML=`<main class="shell">
+  <header><div><div class="eyebrow">KOCHBUCH · SO–DI</div><h1>Rezepte</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+
+  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
+    <div><b>Original & Anpassung getrennt</b><br><span class="muted">Die Kochbuchzutaten bleiben sichtbar; Änderungen stehen extra dabei.</span></div>
+  </section>
+
+  <section class="list">
+    ${Object.entries(recipeData).map(([key,r])=>`
+      <article class="item" onclick="recipeOpen='${key}';renderRecipes()" style="cursor:pointer">
+        <div class="body">
+          <div class="top"><h2>${r.title}</h2><span class="pill">${r.phase}</span></div>
+          <p class="desc">${r.meta}</p>
+          ${r.adaptation?`<div class="meta"><b>Anpassung:</b> ${r.adaptation}</div>`:''}
+          <div class="meta">Rezept öffnen ›</div>
+        </div>
+      </article>`).join('')}
+  </section>
+
+  <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><b onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</b><span>Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
+}
+
+function renderRecipeDetail(key){
+  const r=recipeData[key];
+  document.getElementById('app').innerHTML=`<main class="shell">
+  <header><div><div class="eyebrow">${r.phase}</div><h1 style="font-size:38px">${r.title}</h1></div><div class="actions"><button class="icon" onclick="recipeOpen=null;renderRecipes()">←</button></div></header>
+
+  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
+    <div><b>${r.meta}</b><br><span class="muted">Quelle: Schlank mit Genuss – Das Bauchweg Kochbuch</span></div>
+  </section>
+
+  <section class="item" style="margin-top:14px">
+    <div class="body">
+      <div class="top"><h2>Originalzutaten</h2><span class="pill">Kochbuch</span></div>
+      <div class="desc" style="line-height:1.7">${r.ingredients.map(x=>`• ${x}`).join('<br>')}</div>
+    </div>
+  </section>
+
+  ${r.adaptation?`
+  <section class="notice" style="margin-top:14px;background:#fff4d9;border-color:#ead39a">
+    <div><b>Anpassung für euren Plan</b><br>${r.adaptation}<br><span class="muted">${r.note}</span></div>
+  </section>`:
+  `<section class="notice" style="margin-top:14px"><div><b>Hinweis</b><br><span class="muted">${r.note}</span></div></section>`}
+
+  <button onclick="alert('TM6-Kochmodus kommt als nächster Schritt.')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">
+    Im TM6 kochen
+  </button>
+
+  <nav class="bottom"><span onclick="recipeOpen=null;activeTab='today';renderApp()">Heute</span><span onclick="recipeOpen=null;activeTab='plan';renderApp()">Plan</span><b onclick="recipeOpen=null;activeTab='recipes';renderApp()">Rezepte</b><span>Vorrat</span><span onclick="recipeOpen=null;activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
 
 function renderShopping(){
@@ -165,12 +299,13 @@ function renderShopping(){
   <div class="filters">${[['all','Alle'],['buy','Zu kaufen'],['check','Prüfen'],['done','Erledigt']].map(x=>`<button class="${filter===x[0]?'active':''}" onclick="filter='${x[0]}';renderShopping()">${x[1]}</button>`).join('')}</div>
   ${msg?`<div class="notice"><div>${esc(msg)}</div>${userId&&msg.includes('noch kein Haushalt')?`<div class="uid"><code>${esc(userId)}</code><button onclick="copyUid()">User-ID kopieren</button></div>`:''}</div>`:''}
   <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>`:''}</div></article>`).join('')}</section>
-  <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span>Rezepte</span><span>Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
+  <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span>Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
 }
 
 function renderApp(){
   if(activeTab==='shopping') renderShopping();
   else if(activeTab==='plan') renderPlan();
+  else if(activeTab==='recipes') renderRecipes();
   else renderToday();
 }
 async function login(){
