@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kochen – Einkauf</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f7f2e8;--card:#fffdf8;--ink:#223226;--muted:#738070;--green:#294f38;--sage:#dce6d8;--oat:#eadfca;--terr:#b96746;--line:#e7dfd2}
+*{box-sizing:border-box} body{margin:0;font-family:ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}button,input{font:inherit}
+.shell{max-width:760px;margin:auto;min-height:100vh;padding:22px 18px 94px}
+header{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}h1{font-size:36px;line-height:1;margin:4px 0}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--muted)}
+.actions{display:flex;gap:8px}.icon{width:42px;height:42px;border:0;border-radius:14px;background:var(--card);box-shadow:0 4px 18px #0000000d}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}.stats div{background:var(--card);padding:14px;border-radius:18px;text-align:center}.stats b{display:block;font-size:24px}.stats span{font-size:12px;color:var(--muted)}
+.search{display:flex;align-items:center;background:var(--card);border-radius:16px;padding:0 14px;border:1px solid var(--line)}.search input{width:100%;border:0;background:transparent;padding:13px;outline:0}
+.filters{display:flex;gap:8px;overflow:auto;padding:12px 0}.filters button{border:0;border-radius:999px;padding:9px 12px;background:var(--oat);white-space:nowrap}.filters .active{background:var(--green);color:white}
+.notice{background:#fff5d9;border:1px solid #ead5ab;border-radius:18px;padding:14px;margin:6px 0 14px;display:grid;gap:10px}.uid{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.uid code{background:white;padding:9px 10px;border-radius:10px;font-size:12px;overflow-wrap:anywhere;flex:1}.uid button{border:0;background:#8a6a2a;color:white;border-radius:10px;padding:9px 11px;font-weight:800}
+.list{display:grid;gap:10px}.item{display:flex;gap:12px;background:var(--card);padding:14px;border-radius:20px;border:1px solid #ffffff;box-shadow:0 4px 18px #00000008}.item.done{opacity:.55}.check{width:27px;height:27px;border:2px solid #8b9a89;border-radius:9px;background:white;flex:0 0 auto}.item.done .check{background:var(--green);color:white;border-color:var(--green)}.body{flex:1;min-width:0}.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.top h2{font-size:17px;margin:1px 0 5px}.pill{background:var(--sage);padding:6px 9px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}.pill.warn{background:#f4dfbd}.desc,.meta{font-size:13px;color:var(--muted);margin:0}.meta{margin-top:6px}
+.login{max-width:430px;margin:11vh auto 0;background:var(--card);padding:26px;border-radius:28px;box-shadow:0 18px 50px #00000012}.login h1{font-size:34px}.muted{color:var(--muted)}label{display:grid;gap:6px;margin:12px 0;font-weight:700}label input{border:1px solid var(--line);border-radius:13px;padding:12px;background:white}.primary,.secondary{width:100%;border:0;border-radius:14px;padding:13px;font-weight:800;margin-top:8px}.primary{background:var(--green);color:white}.secondary{background:var(--sage);color:var(--ink)}.msg{margin-top:12px;font-size:13px;color:#775c27;background:#fff5d9;padding:10px;border-radius:12px}
+.bottom{position:fixed;left:10px;right:10px;bottom:10px;max-width:740px;margin:auto;background:#fffdf8eF;backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:24px;padding:12px 10px;display:grid;grid-template-columns:repeat(5,1fr);text-align:center;font-size:12px;box-shadow:0 12px 30px #0002}.bottom b{color:var(--green)}.hidden{display:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
+let rows=[], filter='all', query='', userId='', msg='';
+
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function formatBuy(r){
+  if(r.packages_to_buy && r.package_size && r.package_unit){
+    if(r.packages_to_buy===1){
+      if(['Stück','Knolle','Tube','Bund','Packung'].includes(r.package_unit)) return '1 '+r.package_unit;
+      return Number(r.package_size).toLocaleString('de-DE')+' '+r.package_unit;
+    }
+    return r.packages_to_buy+' × '+Number(r.package_size).toLocaleString('de-DE')+' '+r.package_unit;
+  }
+  if(r.quantity_to_buy!=null && r.required_unit) return Number(r.quantity_to_buy).toLocaleString('de-DE')+' '+r.required_unit;
+  return 'prüfen';
+}
+function reason(r){
+  const inv=Number(r.covered_by_inventory||0), del=Number(r.covered_by_delivery||0);
+  if(r.category==='Vorrat prüfen') return 'Bestand noch nicht sicher bestätigt';
+  if(inv>0 && del>0) return 'Vorrat + Lieferung berücksichtigt';
+  if(inv>0) return 'Vorrat bereits abgezogen';
+  if(del>0) return 'Biokiste rechtzeitig berücksichtigt';
+  return 'Für den Plan noch erforderlich';
+}
+function renderLogin(){
+  document.getElementById('app').innerHTML=`<main class="shell"><section class="login">
+  <div style="font-size:30px">🧺</div><h1>Kochen</h1><p class="muted">Einkaufsliste für euren Haushalt</p>
+  <label>E-Mail<input id="email" type="email" autocomplete="email"></label>
+  <label>Passwort<input id="password" type="password" minlength="6" autocomplete="current-password"></label>
+  <button class="primary" onclick="login()">Anmelden</button>
+  <button class="secondary" onclick="signup()">Konto anlegen</button>
+  <div id="loginmsg" class="msg hidden"></div></section></main>`;
+}
+function renderApp(){
+  const vis=rows.filter(r=>{
+    const name=(r.foods?.name||'').toLowerCase();
+    if(query && !name.includes(query.toLowerCase())) return false;
+    if(filter==='buy') return r.category!=='Vorrat prüfen' && !r.checked;
+    if(filter==='check') return r.category==='Vorrat prüfen' && !r.checked;
+    if(filter==='done') return r.checked;
+    return true;
+  });
+  const bc=rows.filter(r=>r.category!=='Vorrat prüfen'&&!r.checked).length;
+  const cc=rows.filter(r=>r.category==='Vorrat prüfen'&&!r.checked).length;
+  const dc=rows.filter(r=>r.checked).length;
+  document.getElementById('app').innerHTML=`<main class="shell">
+  <header><div><div class="eyebrow">SO–DI · 30.08.–01.09.</div><h1>Einkaufsliste</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+  <section class="stats"><div><b>${bc}</b><span>zu kaufen</span></div><div><b>${cc}</b><span>Vorrat prüfen</span></div><div><b>${dc}</b><span>erledigt</span></div></section>
+  <div class="search">⌕<input placeholder="Artikel suchen" value="${esc(query)}" oninput="query=this.value;renderApp()"></div>
+  <div class="filters">${[['all','Alle'],['buy','Zu kaufen'],['check','Prüfen'],['done','Erledigt']].map(x=>`<button class="${filter===x[0]?'active':''}" onclick="filter='${x[0]}';renderApp()">${x[1]}</button>`).join('')}</div>
+  ${msg?`<div class="notice"><div>${esc(msg)}</div>${userId&&msg.includes('noch kein Haushalt')?`<div class="uid"><code>${esc(userId)}</code><button onclick="copyUid()">User-ID kopieren</button></div>`:''}</div>`:''}
+  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>`:''}</div></article>`).join('')}</section>
+  <nav class="bottom"><span>Heute</span><span>Plan</span><span>Rezepte</span><span>Vorrat</span><b>Einkauf</b></nav></main>`;
+}
+async function login(){
+  const email=document.getElementById('email').value, password=document.getElementById('password').value;
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  const el=document.getElementById('loginmsg'); if(error){el.textContent=error.message;el.classList.remove('hidden')}
+}
+async function signup(){
+  const email=document.getElementById('email').value, password=document.getElementById('password').value;
+  const {error}=await sb.auth.signUp({email,password});
+  const el=document.getElementById('loginmsg'); el.textContent=error?error.message:'Konto angelegt. Falls eine Bestätigungsmail kommt, bitte den Link darin öffnen.';el.classList.remove('hidden');
+}
+async function logout(){await sb.auth.signOut();}
+async function copyUid(){await navigator.clipboard.writeText(userId);alert('User-ID kopiert');}
+async function toggle(id){
+  const r=rows.find(x=>x.id===id); if(!r)return; const next=!r.checked; r.checked=next; renderApp();
+  const {error}=await sb.from('shopping_items').update({checked:next}).eq('id',id);
+  if(error){r.checked=!next;msg='Abhaken konnte nicht gespeichert werden: '+error.message;renderApp()}
+}
+async function loadRows(){
+  msg='';
+  const {data,error}=await sb.from('shopping_items').select('id,food_id,required_quantity,required_unit,covered_by_inventory,covered_by_delivery,quantity_to_buy,package_size,package_unit,packages_to_buy,category,checked,manually_added,needed_by,foods(name)').order('needed_by',{ascending:true});
+  if(error){msg=/row-level security|permission/i.test(error.message)?'Du bist angemeldet, aber diesem Supabase-Nutzer ist noch kein Haushalt zugeordnet.':error.message;rows=[]}
+  else {rows=data||[]; if(!rows.length)msg='Noch keine Einkaufsposten für diesen Haushalt vorhanden.'}
+  renderApp();
+}
+sb.auth.getSession().then(async ({data})=>{if(data.session){userId=data.session.user.id;await loadRows()}else renderLogin()});
+sb.auth.onAuthStateChange((_e,session)=>{if(session){userId=session.user.id;setTimeout(loadRows,0)}else{rows=[];userId='';renderLogin()}});
+</script>
+</body></html>
