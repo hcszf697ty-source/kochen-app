@@ -321,7 +321,15 @@ async function finishCook(){
   });
   if(error){alert('Vorrat konnte nicht abgebucht werden: '+error.message);return;}
   const w=data?.warnings||[];
-  alert(w.length?`Gekocht. ${w.length} Zutaten konnten wegen unklarer Mengen nicht vollständig abgebucht werden.`:'Gekocht ✓ Zutaten wurden aus dem Vorrat abgebucht.');
+  const est=data?.tracked_estimated||[];
+  if(w.length){
+    const names=w.map(x=>x.food).join(', ');
+    alert(`Gekocht ✓\n\n${est.length} Zutaten wurden trotz geschätztem Vorrat als Verbrauch protokolliert.\n${w.length} Zutaten fehlen noch komplett im Vorrat: ${names}.`);
+  } else if(est.length){
+    alert(`Gekocht ✓\n\n${est.length} Zutaten waren im Vorrat nur geschätzt oder in einer anderen Einheit erfasst. Der Verbrauch wurde protokolliert, ohne eine falsche Restmenge zu erfinden.`);
+  } else {
+    alert('Gekocht ✓ Zutaten wurden mengenmäßig aus dem Vorrat abgebucht.');
+  }
   cookMode=null;recipeOpen='blumenkohl';activeTab='recipes';renderRecipes();
 }
 
@@ -422,7 +430,7 @@ function renderInventory(){
   for(const r of inventoryRows){const loc=r.location||'Ohne Ort';(groups[loc] ||= []).push(r);}
   document.getElementById('app').innerHTML=`<main class="shell">
   <header><div><div class="eyebrow">LIVE AUS SUPABASE</div><h1>Vorrat</h1></div><div class="actions"><button class="icon" onclick="loadInventory()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
-  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>${inventoryRows.length} Vorratsposten</b><br><span class="muted">Einkäufe mit „Eingeräumt“ landen automatisch hier.</span></div></section>
+  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>${inventoryRows.length} Vorratsposten</b><br><span class="muted">Einkäufe mit „Eingeräumt“ landen automatisch hier. Beim Kochen werden exakte Mengen abgezogen; geschätzte Bestände werden nur als Verbrauch protokolliert.</span></div></section>
   ${Object.entries(groups).map(([loc,items])=>`<section style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">${esc(loc)}</div><div class="list">
   ${items.map(r=>`<article class="item"><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannt')}</h2><span class="pill ${r.quantity_status==='low'?'warn':''}">${r.quantity==null?'Menge unklar':esc(String(r.quantity)+' '+(r.unit||''))}</span></div><div class="meta">${esc(r.quantity_status||'')}${r.opened?' · geöffnet':''}</div></div></article>`).join('')}
   </div></section>`).join('')}
