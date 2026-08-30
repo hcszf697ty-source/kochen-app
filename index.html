@@ -62,6 +62,12 @@ let recipeOpen=null;
 let cookMode=null;
 let cookStep=0;
 
+function openRecipe(key){
+  activeTab='recipes';
+  recipeOpen=key;
+  renderApp();
+}
+
 function renderToday(){
   document.getElementById('app').innerHTML=`<main class="shell">
   <header><div><div class="eyebrow">TAG 1 · ZÜNDERPHASE</div><h1>Heute</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
@@ -73,7 +79,7 @@ function renderToday(){
   <section class="list">
     <article class="item">
       <div class="body">
-        <div class="top"><h2>Frühstück · Quark mit Beeren</h2><span class="pill">alles da</span></div>
+        <div class="top"><h2>Frühstück · <span onclick="openRecipe('quark')" style="cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px">Quark mit Beeren</span></h2><span class="pill">alles da</span></div>
         <p class="desc">Für 2 Erwachsene · je 250 g Quark, 3 EL Milch, 150 g Beeren, Zimt</p>
         <div class="meta">Kinder essen ein anderes Frühstück.</div>
       </div>
@@ -81,7 +87,7 @@ function renderToday(){
 
     <article class="item">
       <div class="body">
-        <div class="top"><h2>Heute kochen · Blumenkohlsuppe</h2><span class="pill">TM6</span></div>
+        <div class="top"><h2>Heute kochen · <span onclick="openRecipe('blumenkohl')" style="cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px">Blumenkohlsuppe</span></h2><span class="pill">TM6</span></div>
         <p class="desc">1 Originalmenge aus dem Kochbuch · sichtbare Anpassung: <b>heute ohne Pastinake</b></p>
         <div class="meta">Ausbeute nach dem Kochen prüfen und erst dann auf Mahlzeiten verteilen.</div>
       </div>
@@ -89,7 +95,7 @@ function renderToday(){
 
     <article class="item">
       <div class="body">
-        <div class="top"><h2>Heute zusätzlich · Tomatensuppe</h2><span class="pill">Alternative</span></div>
+        <div class="top"><h2>Heute zusätzlich · <span onclick="openRecipe('tomate')" style="cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px">Tomatensuppe</span></h2><span class="pill">Alternative</span></div>
         <p class="desc">1 Originalmenge nach dem Kochbuch zusätzlich vorbereiten.</p>
         <div class="meta">Beide Suppen stehen als Auswahl bereit. Reste können für Montag zurückgestellt werden.</div>
       </div>
