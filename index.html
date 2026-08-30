@@ -135,7 +135,45 @@ function renderToday(){
 }
 
 
+
+let planDay='2026-08-30';
+
+function setPlanDay(day){
+  planDay=day;
+  renderPlan();
+}
+
 function renderPlan(){
+  const days={
+    '2026-08-30':{
+      label:'So · 30.08.', phase:'Zünder',
+      body:`
+        <p class="desc"><b>Frühstück:</b> <span onclick="openRecipe('quark')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Quark mit Beeren</span> <span class="muted">· 2 Erwachsene</span></p>
+        <p class="desc"><b>Heute kochen:</b> <span onclick="openRecipe('blumenkohl')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Blumenkohlsuppe</span> <span class="muted">· 1 Originalmenge, ohne Pastinake</span></p>
+        <p class="desc"><b>Zusätzlich kochen:</b> <span onclick="openRecipe('tomate')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Tomatensuppe</span> <span class="muted">· 1 Originalmenge</span></p>
+        <div class="meta">Beide Suppen als Auswahl für Mittag/Abend. Gemessene Ausbeute Blumenkohlsuppe: 5 Teller.</div>`
+    },
+    '2026-08-31':{
+      label:'Mo · 31.08.', phase:'Zünder',
+      body:`
+        <p class="desc"><b>Frühstück:</b> <span onclick="openRecipe('quark')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Quark mit Beeren</span> <span class="muted">· 2 Erwachsene</span></p>
+        <p class="desc"><b>Mittag außer Haus:</b> <span onclick="openRecipe('blumenkohl')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Blumenkohlsuppe</span> vom Sonntag, sofern genug übrig ist</p>
+        <p class="desc"><b>Abend:</b> <span onclick="openRecipe('blumenkohl')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Blumenkohlsuppe</span></p>
+        <div class="meta">Biokiste kommt: 1 Blumenkohl ist dafür eingeplant.</div>
+        <div style="height:10px"></div>
+        ${prepCard('Genießer-Salat','geniesser','Heute vorbereiten · Mittagessen Dienstag')}`
+    },
+    '2026-09-01':{
+      label:'Di · 01.09.', phase:'Turbo',
+      body:`
+        <p class="desc"><b>Frühstück:</b> <span onclick="openRecipe('quark')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Quark mit Beeren</span> <span class="muted">· 2 Erwachsene</span></p>
+        <p class="desc"><b>Mittag außer Haus:</b> <span onclick="openRecipe('geniesser')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Genießer-Salat</span></p>
+        <p class="desc"><b>Abend:</b> <span onclick="openRecipe('feta')" style="cursor:pointer;text-decoration:underline;text-underline-offset:4px">Gebackener Feta auf Paprika-Tomaten</span></p>
+        <div class="meta">Glutenfreie Zutaten bei Schinken und Brühe prüfen.</div>`
+    }
+  };
+  const d=days[planDay]||days['2026-08-30'];
+
   document.getElementById('app').innerHTML=`<main class="shell">
   <header><div><div class="eyebrow">WOCHE 1 · START</div><h1>Plan</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
@@ -143,40 +181,25 @@ function renderPlan(){
     <div><b>30.08.–01.09.</b><br><span class="muted">Zünderphase → Turbophase</span></div>
   </section>
 
+  <section style="display:flex;gap:8px;overflow-x:auto;padding:4px 0 14px">
+    ${Object.entries(days).map(([key,x])=>`
+      <button onclick="setPlanDay('${key}')" style="min-width:110px;border:${planDay===key?'2px solid #294936':'1px solid #d8d2c3'};background:${planDay===key?'#edf3e9':'#fffdf7'};border-radius:18px;padding:12px 14px;text-align:left">
+        <div style="font-weight:800">${x.label}</div>
+        <div class="muted" style="font-size:13px;margin-top:3px">${x.phase}</div>
+      </button>`).join('')}
+  </section>
+
   <section class="list">
     <article class="item">
       <div class="body">
-        <div class="top"><h2>So · 30.08.</h2><span class="pill">Zünder</span></div>
-        <p class="desc"><b>Frühstück:</b> Quark mit Beeren <span class="muted">· 2 Erwachsene</span></p>
-        <p class="desc"><b>Heute kochen:</b> Blumenkohlsuppe <span class="muted">· 1 Originalmenge, ohne Pastinake</span></p>
-        <p class="desc"><b>Zusätzlich kochen:</b> Tomatensuppe <span class="muted">· 1 Originalmenge</span></p>
-        <div class="meta">Beide Suppen als Auswahl für Mittag/Abend. Ausbeute prüfen; passende Reste für Montag zurückstellen.</div>
-      </div>
-    </article>
-
-    <article class="item">
-      <div class="body">
-        <div class="top"><h2>Mo · 31.08.</h2><span class="pill">Zünder</span></div>
-        <p class="desc"><b>Frühstück:</b> Quark mit Beeren <span class="muted">· 2 Erwachsene</span></p>
-        <p class="desc"><b>Mittag außer Haus:</b> Blumenkohlsuppe vom Sonntag</p>
-        <p class="desc"><b>Abend:</b> Blumenkohlsuppe</p>
-        <div class="meta">Biokiste kommt: 1 Blumenkohl ist dafür eingeplant.</div>
-      </div>
-    </article>
-
-    <article class="item">
-      <div class="body">
-        <div class="top"><h2>Di · 01.09.</h2><span class="pill">Turbo</span></div>
-        <p class="desc"><b>Frühstück:</b> Quark mit Beeren <span class="muted">· 2 Erwachsene</span></p>
-        <p class="desc"><b>Mittag außer Haus:</b> Genießer-Salat</p>
-        <p class="desc"><b>Abend:</b> Gebackener Feta auf Paprika-Tomaten</p>
-        <div class="meta">Glutenfreie Zutaten bei Schinken und Brühe prüfen.</div>
+        <div class="top"><h2>${d.label}</h2><span class="pill">${d.phase}</span></div>
+        ${d.body}
       </div>
     </article>
   </section>
 
   <section class="notice" style="margin-top:14px">
-    <div><b>Planlogik</b><br>Vorrat zuerst · dann Biokiste, wenn sie rechtzeitig kommt · erst danach Einkauf.</div>
+    <div><b>Planlogik</b><br>Tippe oben auf einen Tag, um vorauszuschauen. Rezeptnamen führen direkt zum Rezept.</div>
   </section>
 
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><b onclick="activeTab='plan';renderApp()">Plan</b><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
