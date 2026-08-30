@@ -81,17 +81,17 @@ function renderToday(){
 
     <article class="item">
       <div class="body">
-        <div class="top"><h2>Mittag · Blumenkohlsuppe</h2><span class="pill">TM6</span></div>
-        <p class="desc">Kochbuch-Rezept · sichtbare Anpassung: <b>heute ohne Pastinake</b></p>
-        <div class="meta">Zusätzlich Portion für Montagmittag vorbereiten.</div>
+        <div class="top"><h2>Heute kochen · Blumenkohlsuppe</h2><span class="pill">TM6</span></div>
+        <p class="desc">1 Originalmenge aus dem Kochbuch · sichtbare Anpassung: <b>heute ohne Pastinake</b></p>
+        <div class="meta">Ausbeute nach dem Kochen prüfen und erst dann auf Mahlzeiten verteilen.</div>
       </div>
     </article>
 
     <article class="item">
       <div class="body">
-        <div class="top"><h2>Abend · Blumenkohlsuppe</h2><span class="pill">vorbereiten</span></div>
-        <p class="desc">Wie geplant nochmals Suppe.</p>
-        <div class="meta">Montag kommt ein weiterer Blumenkohl mit der Biokiste.</div>
+        <div class="top"><h2>Heute zusätzlich · Tomatensuppe</h2><span class="pill">Alternative</span></div>
+        <p class="desc">1 Originalmenge nach dem Kochbuch zusätzlich vorbereiten.</p>
+        <div class="meta">Beide Suppen stehen als Auswahl bereit. Reste können für Montag zurückgestellt werden.</div>
       </div>
     </article>
   </section>
@@ -117,9 +117,9 @@ function renderPlan(){
       <div class="body">
         <div class="top"><h2>So · 30.08.</h2><span class="pill">Zünder</span></div>
         <p class="desc"><b>Frühstück:</b> Quark mit Beeren <span class="muted">· 2 Erwachsene</span></p>
-        <p class="desc"><b>Mittag:</b> Blumenkohlsuppe <span class="muted">· heute ohne Pastinake</span></p>
-        <p class="desc"><b>Abend:</b> Blumenkohlsuppe</p>
-        <div class="meta">Für Montagmittag eine Portion vorbereiten.</div>
+        <p class="desc"><b>Heute kochen:</b> Blumenkohlsuppe <span class="muted">· 1 Originalmenge, ohne Pastinake</span></p>
+        <p class="desc"><b>Zusätzlich kochen:</b> Tomatensuppe <span class="muted">· 1 Originalmenge</span></p>
+        <div class="meta">Beide Suppen als Auswahl für Mittag/Abend. Ausbeute prüfen; passende Reste für Montag zurückstellen.</div>
       </div>
     </article>
 
@@ -203,6 +203,21 @@ const recipeData = {
     ],
     adaptation: '',
     note: 'Für glutenfreie Zubereitung Schinken und Brühe entsprechend auswählen.'
+  },
+  tomate: {
+    title: 'Tomatensuppe',
+    phase: 'Zünder',
+    meta: 'Mittag / Abend · Alternative',
+    ingredients: [
+      '1 Zwiebel',
+      '1 rote Paprika',
+      'Olivenöl',
+      '450 g stückige Tomaten aus der Dose',
+      'Gemüsebrühe',
+      'Saure Sahne'
+    ],
+    adaptation: '',
+    note: 'Heute zusätzlich zur Blumenkohlsuppe als Alternative eingeplant.'
   },
   feta: {
     title: 'Gebackener Feta auf Paprika-Tomaten',
