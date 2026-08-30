@@ -68,7 +68,31 @@ function openRecipe(key){
   renderApp();
 }
 
+
+function prepCard(title,key,whenText){
+  return `<article class="item" style="border-style:dashed">
+    <div class="body">
+      <div class="top">
+        <h2><span onclick="openRecipe('${key}')" style="cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px">${title}</span></h2>
+        <span class="pill">Vorbereiten</span>
+      </div>
+      <div class="meta">${whenText}</div>
+    </div>
+  </article>`;
+}
+
 function renderToday(){
+
+  const todayIso=new Date().toLocaleDateString('en-CA');
+  const prepHtml = todayIso==='2026-08-31'
+    ? `<section style="margin-top:18px">
+         <div class="eyebrow" style="margin-bottom:8px">VORBEREITUNG FÜR MORGEN</div>
+         <div class="list">
+           ${prepCard('Genießer-Salat','geniesser','Heute vorbereiten · Mittagessen Dienstag')}
+         </div>
+       </section>`
+    : '';
+
   document.getElementById('app').innerHTML=`<main class="shell">
   <header><div><div class="eyebrow">TAG 1 · ZÜNDERPHASE</div><h1>Heute</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
@@ -106,7 +130,8 @@ function renderToday(){
     <div><b>Heute wichtig</b><br>1 Blumenkohl für Sonntag verwenden. Biokisten-Blumenkohl kommt erst Montag.</div>
   </section>
 
-  <nav class="bottom"><b onclick="activeTab='today';renderApp()">Heute</b><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
+  ${prepHtml}
+<nav class="bottom"><b onclick="activeTab='today';renderApp()">Heute</b><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
 
 
