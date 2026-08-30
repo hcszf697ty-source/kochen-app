@@ -265,10 +265,11 @@ const recipeData = {
     ingredients: [
       '1 Zwiebel',
       '1 rote Paprika',
-      'Olivenöl',
+      '1 EL Olivenöl',
       '450 g stückige Tomaten aus der Dose',
-      'Gemüsebrühe',
-      'Saure Sahne'
+      '300 ml glutenfreie Gemüsebrühe',
+      '1 TL saure Sahne 10 %',
+      'Salz und Pfeffer'
     ],
     adaptation: '',
     note: 'Heute zusätzlich zur Blumenkohlsuppe als Alternative eingeplant.'
@@ -299,49 +300,70 @@ const recipeData = {
 
 
 const tm6Cook = {
+  quark: {
+    title:'Quark mit Beeren',
+    adaptation:'',
+    defaultYield:1,
+    steps:[
+      {title:'Cremig rühren',needs:['250 g Quark 20 %','3 EL Milch 1,5 %'],text:'Quark und Milch in den Mixtopf geben und cremig rühren. Mit dem Spatel nach unten schieben; bei Bedarf noch einmal kurz rühren.',setting:'20 Sek. · Stufe 3',book:'TM6-Adaption der Kochbuch-Zutaten. Bei Bedarf weitere 10 Sek. · Stufe 3.'},
+      {title:'Portionieren',needs:['Quark-Milch-Mischung'],text:'Die Quarkmischung in eine Schale oder Frühstücksbox füllen.',setting:'Ohne TM6',book:'1 Buchportion.'},
+      {title:'Beeren dazugeben',needs:['150 g Beeren'],text:'Beeren auf den Quark geben. Tiefgekühlte Beeren vorher im Kühlschrank auftauen lassen oder separat mitnehmen.',setting:'Ohne TM6',book:'Keine zusätzlichen Zutaten ergänzen.'},
+      {title:'Abschließen',needs:['Zimt nach Geschmack'],text:'Mit Zimt abschließen.',setting:'Fertig',book:'Entspricht der Zünderfrühstück-Variante.'}
+    ]
+  },
   blumenkohl: {
-    title: 'Blumenkohlsuppe',
-    adaptation: 'Heute ohne Pastinake',
-    steps: [
-      {
-        title:'Vorbereiten',
-        text:'1 Blumenkohl in kleine Röschen teilen. 1 Zwiebel abziehen und vierteln.',
-        setting:'Vorbereitung',
-        book:'Im Buch: Blumenkohl in kleine Röschen teilen, Zwiebel klein schneiden. Pastinake vorbereiten – diese entfällt heute.'
-      },
-      {
-        title:'Zwiebel zerkleinern',
-        text:'Zwiebel in den Mixtopf geben und zerkleinern. Mit dem Spatel nach unten schieben.',
-        setting:'5 Sek. · Stufe 5',
-        book:'TM6-Übertragung des im Buch vorgesehenen Kleinschneidens.'
-      },
-      {
-        title:'Andünsten',
-        text:'Von insgesamt 450 ml Gemüsebrühe einen kleinen Teil zur Zwiebel geben und andünsten.',
-        setting:'2 Min. · 120 °C · Stufe 1',
-        book:'Das Buch sieht etwa 2 Minuten Andünsten in etwas Gemüsebrühe vor. Temperatur und Stufe sind die TM6-Übertragung.'
-      },
-      {
-        title:'Suppe kochen',
-        text:'Restliche Gemüsebrühe, 1 Blumenkohl in Röschen und 100 ml Milch zugeben und garen.',
-        setting:'10 Min. · 100 °C · Stufe 1',
-        book:'Das Buch nennt ca. 10 Minuten Köcheln. Temperatur und Stufe sind die TM6-Übertragung.'
-      },
-      {
-        title:'Pürieren',
-        text:'Nach dem Garen die Suppe pürieren. Wegen der heißen Suppe die Geschwindigkeit schrittweise erhöhen.',
-        setting:'30 Sek. · Stufe 5 → 8',
-        book:'Das Buch verlangt anschließendes Pürieren. Dauer und Stufen sind die TM6-Übertragung.'
-      },
-      {
-        title:'Abschmecken',
-        text:'Mit Salz, Pfeffer und Zitronensaft abschmecken. 1 EL Schnittlauch darübergeben und servieren.',
-        setting:'Fertig',
-        book:'Entspricht dem Abschluss des Buchrezepts.'
-      }
+    title:'Blumenkohlsuppe',
+    adaptation:'Heute ohne Pastinake',
+    defaultYield:5,
+    steps:[
+      {title:'Vorbereiten',needs:['1 Blumenkohl','1 Zwiebel','1 Pastinake laut Original – heute weglassen'],text:'1 Blumenkohl in kleine Röschen teilen. 1 Zwiebel abziehen und vierteln.',setting:'Vorbereitung',book:'Im Buch: Blumenkohl in kleine Röschen teilen, Zwiebel klein schneiden. Pastinake vorbereiten – diese entfällt heute.'},
+      {title:'Zwiebel zerkleinern',needs:['1 vorbereitete Zwiebel'],text:'Zwiebel in den Mixtopf geben und zerkleinern. Mit dem Spatel nach unten schieben.',setting:'5 Sek. · Stufe 5',book:'TM6-Übertragung des im Buch vorgesehenen Kleinschneidens.'},
+      {title:'Andünsten',needs:['zerkleinerte Zwiebel','etwas von insgesamt 450 ml Gemüsebrühe'],text:'Von insgesamt 450 ml Gemüsebrühe einen kleinen Teil zur Zwiebel geben und andünsten.',setting:'2 Min. · 120 °C · Stufe 1',book:'Das Buch sieht etwa 2 Minuten Andünsten in etwas Gemüsebrühe vor. Temperatur und Stufe sind die TM6-Übertragung.'},
+      {title:'Suppe kochen',needs:['restliche Gemüsebrühe','1 Blumenkohl in Röschen','100 ml Milch'],text:'Restliche Gemüsebrühe, Blumenkohlröschen und Milch zugeben und garen.',setting:'10 Min. · 100 °C · Stufe 1',book:'Das Buch nennt ca. 10 Minuten Köcheln. Temperatur und Stufe sind die TM6-Übertragung.'},
+      {title:'Pürieren',needs:['gekochte Suppe im Mixtopf'],text:'Nach dem Garen die Suppe pürieren. Wegen der heißen Suppe die Geschwindigkeit schrittweise erhöhen.',setting:'30 Sek. · Stufe 5 → 8',book:'Das Buch verlangt anschließendes Pürieren. Dauer und Stufen sind die TM6-Übertragung.'},
+      {title:'Abschmecken',needs:['Zitronensaft nach Geschmack','Salz','Pfeffer','1 EL Schnittlauch'],text:'Mit Salz, Pfeffer und Zitronensaft abschmecken. Schnittlauch darübergeben und servieren.',setting:'Fertig',book:'Entspricht dem Abschluss des Buchrezepts.'}
+    ]
+  },
+  tomate: {
+    title:'Tomatensuppe',
+    adaptation:'',
+    defaultYield:null,
+    steps:[
+      {title:'Zwiebel zerkleinern',needs:['1 Zwiebel, halbiert'],text:'Zwiebel in den Mixtopf geben und zerkleinern. Mit dem Spatel nach unten schieben.',setting:'5 Sek. · Stufe 5',book:'TM6-Adaption der Kochbuch-Zubereitung.'},
+      {title:'Paprika & Öl',needs:['1 rote Paprika, in Stücken','1 EL Olivenöl'],text:'Paprika zugeben und zerkleinern. Olivenöl zugeben und dünsten.',setting:'4 Sek. · Stufe 5 · danach 4 Min. · 120 °C · Stufe 1',book:'TM6-Adaption; Zusammensetzung des Kochbuchrezepts bleibt unverändert.'},
+      {title:'Suppe garen',needs:['450 g stückige Tomaten','300 ml glutenfreie Gemüsebrühe','Salz und Pfeffer'],text:'Tomaten, Gemüsebrühe, Salz und Pfeffer zugeben und garen.',setting:'15 Min. · 100 °C · Stufe 1',book:'TM6-Adaption des Kochbuchrezepts.'},
+      {title:'Pürieren',needs:['gegarte Suppe im Mixtopf'],text:'Heiße Suppe vorsichtig pürieren und die Geschwindigkeit stufenweise erhöhen.',setting:'45 Sek. · Stufe 5 → 8',book:'Beim heißen Pürieren Geschwindigkeit schrittweise erhöhen.'},
+      {title:'Saure Sahne',needs:['1 TL saure Sahne 10 %'],text:'Saure Sahne zugeben, unterrühren und abschmecken.',setting:'10 Sek. · Stufe 3',book:'Abschluss der TM6-Adaption.'},
+      {title:'Portionieren',needs:['fertige Tomatensuppe'],text:'Benötigte Portionen servieren bzw. nach dem Abkühlen in geeignete Behälter füllen.',setting:'Fertig',book:'Zündersuppen haben im Buch keine Personenzahl; tatsächliche Ausbeute nach dem Kochen erfassen.'}
+    ]
+  },
+  geniesser: {
+    title:'Genießer-Salat',
+    adaptation:'',
+    defaultYield:4,
+    steps:[
+      {title:'Eier kochen',needs:['8 Eier'],text:'Eier im TM6 mit dem Modus „Eier kochen“ hart garen. Danach kalt abschrecken, pellen und in Spalten schneiden.',setting:'TM6 · Modus „Eier kochen“',book:'1 Kochbuch-Rezeptmenge; für Montagabend als Meal Prep vorgesehen.'},
+      {title:'Paprika zerkleinern',needs:['3 rote Paprika, grob in Stücken'],text:'Paprika in den Mixtopf geben, kurz zerkleinern und in eine große Schüssel umfüllen.',setting:'3 Sek. · Stufe 4',book:'TM6-Adaption; Gurke wird für mehr Biss von Hand geschnitten.'},
+      {title:'Salat schneiden',needs:['1 Blattsalat','4 Tomaten','400 g Gurke','200 g glutenfreier Schinken','100 g Käse 30 %'],text:'Gurke schneiden. Tomaten in Spalten, Salat in mundgerechte Stücke sowie Schinken und Käse in Streifen schneiden und alles zur Schüssel geben.',setting:'Vorbereitung',book:'Schinken glutenfrei prüfen.'},
+      {title:'Dressing',needs:['4 EL Essig','100 ml glutenfreie Gemüsebrühe','1 EL Öl','Salatkräuter oder Kresse','Salz und Pfeffer'],text:'Dressingzutaten in den Mixtopf geben und emulgieren.',setting:'10 Sek. · Stufe 4',book:'Brühe glutenfrei verwenden.'},
+      {title:'Lunchboxen packen',needs:['Salatbestandteile','8 Eier in Spalten','Dressing'],text:'Salat und Eier auf Lunchboxen verteilen. Dressing separat abfüllen und erst kurz vor dem Essen vermengen.',setting:'Fertig',book:'Vorbereitung am Montag für Dienstagmittag.'}
+    ]
+  },
+  feta: {
+    title:'Gebackener Feta auf Paprika-Tomaten',
+    adaptation:'',
+    defaultYield:4,
+    steps:[
+      {title:'Backofen vorheizen',needs:[],text:'Backofen auf 200 °C Ober-/Unterhitze vorheizen.',setting:'Backofen · 200 °C O/U',book:'TM6 wird für die Sauce verwendet.'},
+      {title:'Zwiebel & Knoblauch',needs:['1 große Zwiebel, halbiert','2 Knoblauchzehen'],text:'Zwiebel und Knoblauch in den Mixtopf geben und zerkleinern. Mit dem Spatel nach unten schieben.',setting:'5 Sek. · Stufe 5',book:'TM6-Adaption des Kochbuchrezepts.'},
+      {title:'Paprika dünsten',needs:['3 rote Paprika, in Stücken','1 EL Olivenöl'],text:'Paprika zugeben und kurz zerkleinern. Olivenöl zugeben und dünsten.',setting:'4 Sek. · Stufe 4 · danach 5 Min. · 120 °C · Linkslauf · Stufe 1',book:'Für eine stückige Sauce Linkslauf verwenden.'},
+      {title:'Sauce garen',needs:['400 g stückige Tomaten mit Kräutern','3 EL Tomatenmark','italienische Kräuter','Salz','Pfeffer','Zucker','Paprika'],text:'Tomaten, Tomatenmark und die im Kochbuch genannten Gewürze zugeben und garen.',setting:'10 Min. · 100 °C · Linkslauf · Stufe 1',book:'TM6-Adaption; Gewürze nach Kochbuch.'},
+      {title:'Auflaufform füllen',needs:['Paprika-Tomaten-Sauce','4 × 180 g Feta/Schafskäse','Thymian','Rosmarin'],text:'Sauce in eine große Auflaufform geben. Die vier Feta-Stücke daraufsetzen und mit Thymian und Rosmarin bestreuen.',setting:'Vorbereitung Backofen',book:'1 Kochbuch-Rezeptmenge für 4 Personen.'},
+      {title:'Backen',needs:['vorbereitete Auflaufform'],text:'Im vorgeheizten Ofen backen, bis der Feta heiß und leicht gebräunt ist.',setting:'15–20 Min. · 200 °C O/U',book:'Direkt servieren.'}
     ]
   }
 };
+
 
 function startCook(key){
   if(!tm6Cook[key]){
@@ -363,7 +385,7 @@ async function finishCook(){
     const {data:p}=await sb.from('foods').select('id').eq('name','Pastinake').maybeSingle();
     if(p?.id) excluded=[p.id];
   }
-  let y=prompt('Wie viele Teller/Portionen hat die Kochrunde ergeben?',title==='Blumenkohlsuppe'?'5':'');
+  let y=prompt('Wie viele Teller/Portionen hat die Kochrunde ergeben?',tm6Cook[cookMode].defaultYield??'');
   if(y===null)return;
   let p=prompt('Wie viele Portionen bleiben jetzt übrig und sollen als fertiges Essen in den Vorrat?','');
   if(p===null)return;
@@ -388,7 +410,7 @@ async function finishCook(){
   } else {
     alert('Gekocht ✓ Zutaten wurden mengenmäßig aus dem Vorrat abgebucht.');
   }
-  cookMode=null;cookToken=null;recipeOpen='blumenkohl';activeTab='recipes';renderRecipes();
+  const finishedKey=cookMode; cookMode=null;cookToken=null;recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
 }
 
 function renderCookMode(){
@@ -397,21 +419,22 @@ function renderCookMode(){
   document.getElementById('app').innerHTML=`<main class="shell">
     <header>
       <div><div class="eyebrow">TM6-KOCHMODUS · ${cookStep+1}/${c.steps.length}</div><h1 style="font-size:38px">${c.title}</h1></div>
-      <div class="actions"><button class="icon" onclick="cookMode=null;recipeOpen='blumenkohl';renderRecipes()">×</button></div>
+      <div class="actions"><button class="icon" onclick="recipeOpen=cookMode;cookMode=null;renderRecipes()">×</button></div>
     </header>
 
     <div style="height:8px;background:#e5e6df;border-radius:999px;overflow:hidden;margin:6px 0 18px">
       <div style="height:100%;width:${pct}%;background:#294936;border-radius:999px"></div>
     </div>
 
-    <section class="notice" style="background:#fff4d9;border-color:#ead39a">
+    ${c.adaptation?`<section class="notice" style="background:#fff4d9;border-color:#ead39a">
       <div><b>Anpassung</b><br>${c.adaptation}</div>
-    </section>
+    </section>`:''}
 
     <section class="item" style="margin-top:18px;min-height:300px;display:flex;align-items:center">
       <div class="body" style="width:100%">
         <div class="eyebrow">SCHRITT ${cookStep+1}</div>
         <h2 style="font-size:32px;margin:8px 0 18px">${s.title}</h2>
+        ${s.needs&&s.needs.length?`<div style="margin:0 0 18px;padding:16px;border-radius:18px;background:#fff8e8"><b>Jetzt brauchst du</b><div style="margin-top:8px;line-height:1.6">${s.needs.map(x=>`• ${x}`).join('<br>')}</div></div>`:''}
         <p class="desc" style="font-size:22px;line-height:1.45">${s.text}</p>
         <div style="margin-top:26px;padding:20px;border-radius:20px;background:#edf3e9;text-align:center;font-size:24px;font-weight:800">${s.setting}</div>
       </div>
