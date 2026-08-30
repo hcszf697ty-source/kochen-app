@@ -313,24 +313,28 @@ async function finishCook(){
   if(y===null)return;
   let p=prompt('Wie viele Portionen bleiben jetzt übrig und sollen als fertiges Essen in den Vorrat?','');
   if(p===null)return;
-  const {data,error}=await sb.rpc('consume_recipe',{
-    p_recipe_id:recipe.id,p_multiplier:1,
+  const {data,error}=await sb.rpc('consume_recipe_v2',{
+    p_recipe_id:recipe.id,p_cook_token:cookToken,p_multiplier:1,
     p_yield_portions:y.trim()===''?null:Number(y.replace(',','.')),
     p_portions_remaining:p.trim()===''?null:Number(p.replace(',','.')),
     p_excluded_food_ids:excluded
   });
   if(error){alert('Vorrat konnte nicht abgebucht werden: '+error.message);return;}
-  const w=data?.warnings||[];
+  if(data?.duplicate){
+    alert('Diese Kochrunde wurde bereits verbucht ✓\n\nEs wurde nichts ein zweites Mal vom Vorrat abgezogen.');
+    return;
+  }
   const est=data?.tracked_estimated||[];
-  if(w.length){
-    const names=w.map(x=>x.food).join(', ');
-    alert(`Gekocht ✓\n\n${est.length} Zutaten wurden trotz geschätztem Vorrat als Verbrauch protokolliert.\n${w.length} Zutaten fehlen noch komplett im Vorrat: ${names}.`);
-  } else if(est.length){
-    alert(`Gekocht ✓\n\n${est.length} Zutaten waren im Vorrat nur geschätzt oder in einer anderen Einheit erfasst. Der Verbrauch wurde protokolliert, ohne eine falsche Restmenge zu erfinden.`);
+  const untracked=data?.tracked_unquantified||[];
+  if(est.length || untracked.length){
+    const bits=[];
+    if(est.length) bits.push(`${est.length} geschätzte Vorräte wurden als Verbrauch protokolliert`);
+    if(untracked.length) bits.push(`${untracked.length} noch nicht angelegte Vorräte wurden als Verbrauch erfasst`);
+    alert(`Gekocht ✓\n\n${bits.join('. ')}.\n\nEs wurde keine falsche Restmenge erfunden.`);
   } else {
     alert('Gekocht ✓ Zutaten wurden mengenmäßig aus dem Vorrat abgebucht.');
   }
-  cookMode=null;recipeOpen='blumenkohl';activeTab='recipes';renderRecipes();
+  cookMode=null;cookToken=null;recipeOpen='blumenkohl';activeTab='recipes';renderRecipes();
 }
 
 function renderCookMode(){
