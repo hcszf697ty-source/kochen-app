@@ -26,7 +26,7 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 <div id="app"></div>
 <script>
 const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
-let rows=[], inventoryRows=[], filter='all', query='', userId='', householdId='', msg='';
+let rows=[], inventoryRows=[], preparedMealRows=[], filter='all', query='', userId='', householdId='', msg='';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function formatBuy(r){
@@ -61,6 +61,8 @@ let activeTab='today';
 let recipeOpen=null;
 let cookMode=null;
 let cookStep=0;
+let cookServings=null;
+let cookMultiplier=1;
 
 function openRecipe(key){
   activeTab='recipes';
@@ -118,26 +120,26 @@ const weekPlan = {
       ['Abend',recipeLink('Gebackener Feta auf Paprika-Tomaten','feta'),'4-Personen-Kochbuchrezept']
     ],
     note:'Glutenfreie Zutaten bei Schinken und Brühe prüfen.',
-    preps:[['Hähnchen-Sesam-Salat',null,'Heute vorbereiten · Mittagessen Mittwoch']]
+    preps:[]
   },
   '2026-09-02':{
     label:'Mi · 02.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat',null),'4 Portionen · glutenfrei mit Reismehl'],
+      ['Mittag außer Haus',recipeLink('Genießer-Salat','geniesser'),'2 Restportionen · heute aufbrauchen'],
       ['Abend',recipeLink('Auberginen-Hack-Auflauf',null),'Kochbuchrezept']
     ],
-    note:'Vorräte zuerst verwenden; fehlende Mengen erst danach einkaufen.',
-    preps:[['Rohkost-Salat mit Ei',null,'Heute vorbereiten · Mittagessen Donnerstag']]
+    note:'Die fertigen Salatreste haben Vorrang. Das bereits gekaufte Hähnchen bleibt eingeplant.',
+    preps:[['Hähnchen-Sesam-Salat',null,'Heute vorbereiten · Mittagessen Donnerstag · Hähnchen bereits gekauft']]
   },
   '2026-09-03':{
     label:'Do · 03.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Rohkost-Salat mit Ei',null),'Kohlrabi aus dem Vorrat einplanen'],
+      ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat',null),'am Mittwoch vorbereitet · Hähnchen bereits gekauft'],
       ['Abend',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse',null),'600 g Lachs · 500 g Kartoffeln · 300 g Kohlrabi · 200 g Karotten']
     ],
-    note:'Vorhandenen Kohlrabi und Möhren zuerst verbrauchen.',
+    note:'Bereits gekaufte verderbliche Zutaten werden geschützt und zeitnah verplant.',
     preps:[['Sesam-Tofu auf buntem Salat',null,'Heute vorbereiten · Mittagessen Freitag']]
   },
   '2026-09-04':{
@@ -382,14 +384,27 @@ const tm6Cook = {
 };
 
 
+function plannedPortionsFor(key){
+  const map={quark:2,blumenkohl:5,tomate:null,geniesser:2,feta:4};
+  return map[key]??tm6Cook[key]?.defaultYield??null;
+}
+
 function startCook(key){
-  if(!tm6Cook[key]){
-    alert('Für dieses Rezept ist der TM6-Kochmodus noch nicht hinterlegt.');
-    return;
-  }
-  cookMode=key;
-  cookStep=0;
-  renderCookMode();
+  if(!tm6Cook[key]){ alert('Für dieses Rezept ist der TM6-Kochmodus noch nicht hinterlegt.'); return; }
+  const c=tm6Cook[key], original=c.defaultYield, planned=plannedPortionsFor(key), initial=planned||original||1;
+  const overlay=document.createElement('div');
+  overlay.id='portionStart';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">VOR DEM KOCHEN</div><h2>${esc(c.title)}</h2></div><button class="icon" onclick="document.getElementById('portionStart')?.remove()">×</button></div><section class="notice" style="background:#edf3e9;border-color:#d7e2d0">${original?`<b>Kochbuchrezept:</b> ${original} Portionen<br>`:'<b>Kochbuch:</b> keine Portionszahl angegeben<br>'}${planned?`<b>Für den Plan benötigt:</b> ${planned} Portionen<br>`:''}<span class="muted">Du entscheidest, wie viel du tatsächlich kochst.</span></section><label>Ich koche<input id="cookServingsInput" type="number" min="0.5" step="0.5" value="${initial}"></label>${original?`<div class="meta">Die Vorratsabbuchung wird auf Basis von ${original} Buchportionen skaliert.</div>`:''}<button class="primary" onclick="confirmCookStart('${key}')">Kochmodus starten</button></section>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+  document.body.appendChild(overlay);
+}
+function confirmCookStart(key){
+  const c=tm6Cook[key];
+  const n=Number(document.getElementById('cookServingsInput')?.value||c.defaultYield||1);
+  if(!Number.isFinite(n)||n<=0){alert('Bitte eine gültige Portionszahl eingeben.');return;}
+  cookServings=n; cookMultiplier=c.defaultYield? n/Number(c.defaultYield):1;
+  document.getElementById('portionStart')?.remove(); cookMode=key; cookStep=0; renderCookMode();
 }
 
 
@@ -402,12 +417,12 @@ async function finishCook(){
     const {data:p}=await sb.from('foods').select('id').eq('name','Pastinake').maybeSingle();
     if(p?.id) excluded=[p.id];
   }
-  let y=prompt('Wie viele Teller/Portionen hat die Kochrunde ergeben?',tm6Cook[cookMode].defaultYield??'');
+  let y=prompt('Wie viele Teller/Portionen hat die Kochrunde tatsächlich ergeben?',cookServings??tm6Cook[cookMode].defaultYield??'');
   if(y===null)return;
-  let p=prompt('Wie viele Portionen bleiben jetzt übrig und sollen als fertiges Essen in den Vorrat?','');
+  let p=prompt('Wie viele Portionen bleiben nach dem geplanten Essen übrig? Diese werden als fertige Mahlzeit gespeichert.','');
   if(p===null)return;
   const {data,error}=await sb.rpc('consume_recipe_v2',{
-    p_recipe_id:recipe.id,p_cook_token:cookToken,p_multiplier:1,
+    p_recipe_id:recipe.id,p_cook_token:cookToken,p_multiplier:cookMultiplier,
     p_yield_portions:y.trim()===''?null:Number(y.replace(',','.')),
     p_portions_remaining:p.trim()===''?null:Number(p.replace(',','.')),
     p_excluded_food_ids:excluded
@@ -427,7 +442,7 @@ async function finishCook(){
   } else {
     alert('Gekocht ✓ Zutaten wurden mengenmäßig aus dem Vorrat abgebucht.');
   }
-  const finishedKey=cookMode; cookMode=null;cookToken=null;recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
+  const finishedKey=cookMode; cookMode=null;cookToken=null;cookServings=null;cookMultiplier=1;recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
 }
 
 function renderCookMode(){
@@ -446,6 +461,8 @@ function renderCookMode(){
     ${c.adaptation?`<section class="notice" style="background:#fff4d9;border-color:#ead39a">
       <div><b>Anpassung</b><br>${c.adaptation}</div>
     </section>`:''}
+
+    <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Du kochst ${cookServings??c.defaultYield??'eine Rezeptmenge'} Portionen</b><br><span class="muted">${c.defaultYield?`Originalmenge: ${c.defaultYield} Portionen · Faktor ${cookMultiplier.toLocaleString('de-DE',{maximumFractionDigits:2})}`:'Zündersuppe ohne feste Buch-Portionszahl.'}</span></div></section>
 
     <section class="item" style="margin-top:18px;min-height:300px;display:flex;align-items:center">
       <div class="body" style="width:100%">
@@ -538,6 +555,8 @@ function renderInventory(){
 
   <button class="primary" onclick="openInventoryEditor()" style="width:100%;margin:12px 0 2px">＋ Vorrat hinzufügen</button>
 
+  ${preparedMealRows.length?`<section style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">FERTIGE MAHLZEITEN</div><div class="list">${preparedMealRows.map(r=>`<article class="item"><div class="body"><div class="top"><h2>${esc(r.name||'Fertige Mahlzeit')}</h2><span class="pill">${Number(r.portions).toLocaleString('de-DE')} Portionen</span></div><div class="meta">${esc(r.location||'Kühlschrank')}${r.cooked_at?' · gekocht '+new Date(r.cooked_at).toLocaleDateString('de-DE'):''}</div></div></article>`).join('')}</div></section>`:''}
+
   ${Object.entries(groups).map(([loc,items])=>`<section style="margin-top:18px">
     <div class="eyebrow" style="margin-bottom:8px">${esc(loc)}</div><div class="list">
       ${items.map(r=>`<article class="item" onclick="openInventoryEditor('${r.id}')" style="cursor:pointer">
@@ -554,6 +573,22 @@ function renderInventory(){
   </section>`).join('')}
 
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><b onclick="loadInventory()">Vorrat</b><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
+}
+
+function openRealPurchase(id){
+  const r=rows.find(x=>x.id===id); if(!r)return;
+  const overlay=document.createElement('div'); overlay.id='realPurchase';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">ECHTEN EINKAUF ERFASSEN</div><h2>${esc(r.foods?.name||'Artikel')}</h2></div><button class="icon" onclick="document.getElementById('realPurchase')?.remove()">×</button></div><section class="notice"><b>Planbedarf:</b> ${Number(r.quantity_to_buy??r.required_quantity??0).toLocaleString('de-DE')} ${esc(r.required_unit||'')}<br><span class="muted">Trage die Packung ein, die du tatsächlich gekauft hast.</span></section><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>Packungsgröße<input id="realPackSize" type="number" min="0" step="0.01" value="${Number(r.package_size||r.quantity_to_buy||0)||''}"></label><label>Einheit<input id="realPackUnit" value="${esc(r.package_unit||r.required_unit||'')}"></label></div><label>Anzahl Packungen<input id="realPackCount" type="number" min="1" step="1" value="${Number(r.packages_to_buy||1)}"></label><section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><b>Überschuss bleibt im Vorrat.</b><br><span class="muted">Die echte Einkaufsmenge wird eingeräumt; beim Kochen wird nur die tatsächlich verwendete Rezeptmenge abgezogen.</span></section><button class="primary" onclick="saveRealPurchase('${id}')">Speichern & einräumen</button></section>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()}); document.body.appendChild(overlay);
+}
+async function saveRealPurchase(id){
+  const r=rows.find(x=>x.id===id); if(!r)return;
+  const size=Number(document.getElementById('realPackSize')?.value||0), count=Math.max(1,Math.round(Number(document.getElementById('realPackCount')?.value||1))), unit=document.getElementById('realPackUnit')?.value.trim()||r.required_unit||'';
+  if(!Number.isFinite(size)||size<=0){alert('Bitte die echte Packungsgröße eingeben.');return;}
+  const {error}=await sb.from('shopping_items').update({package_size:size,package_unit:unit,packages_to_buy:count,checked:true}).eq('id',id).eq('household_id',householdId);
+  if(error){alert('Einkauf konnte nicht gespeichert werden: '+error.message);return;}
+  document.getElementById('realPurchase')?.remove(); await putAway(id);
 }
 
 function renderShopping(){
@@ -577,7 +612,7 @@ function renderShopping(){
   <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
     <div><b>Aktueller Plan bis Freitagmittag</b><br><span class="muted">Vorrat und bereits gekaufte Artikel werden berücksichtigt. Neue Zutaten für Mi–Fr sind ergänzt.</span></div>
   </section>
-  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
+  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>`:''}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
 }
 
@@ -606,8 +641,15 @@ async function toggle(id){
   if(error){r.checked=!next;msg='Abhaken konnte nicht gespeichert werden: '+error.message;renderApp()}
 }
 
+async function loadPreparedMeals(){
+  if(!householdId){preparedMealRows=[];return;}
+  const {data,error}=await sb.from('prepared_meals').select('id,recipe_id,name,portions,location,cooked_at,status').eq('household_id',householdId).gt('portions',0).order('cooked_at',{ascending:false});
+  preparedMealRows=error?[]:(data||[]);
+}
+
 async function loadInventory(){
   if(!householdId){activeTab='inventory';renderApp();return;}
+  await loadPreparedMeals();
   const [{data:inv,error},{data:foodsData,error:foodsError}] = await Promise.all([
     sb.from('inventory_items')
       .select('id,food_id,quantity,unit,location,quantity_status,opened,foods(name)')
