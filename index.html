@@ -548,11 +548,14 @@ function renderShopping(){
   const cc=rows.filter(r=>r.category==='Vorrat prüfen'&&!r.checked).length;
   const dc=rows.filter(r=>r.checked).length;
   document.getElementById('app').innerHTML=`<main class="shell">
-  <header><div><div class="eyebrow">SO–DI · 30.08.–01.09.</div><h1>Einkaufsliste</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+  <header><div><div class="eyebrow">SO–FR · 30.08.–04.09.</div><h1>Einkaufsliste</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
   <section class="stats"><div><b>${bc}</b><span>zu kaufen</span></div><div><b>${cc}</b><span>Vorrat prüfen</span></div><div><b>${dc}</b><span>erledigt</span></div></section>
   <div class="search">⌕<input placeholder="Artikel suchen" value="${esc(query)}" oninput="query=this.value;renderShopping()"></div>
   <div class="filters">${[['all','Alle'],['buy','Zu kaufen'],['check','Prüfen'],['done','Erledigt']].map(x=>`<button class="${filter===x[0]?'active':''}" onclick="filter='${x[0]}';renderShopping()">${x[1]}</button>`).join('')}</div>
   ${msg?`<div class="notice"><div>${esc(msg)}</div>${userId&&msg.includes('noch kein Haushalt')?`<div class="uid"><code>${esc(userId)}</code><button onclick="copyUid()">User-ID kopieren</button></div>`:''}</div>`:''}
+  <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
+    <div><b>Aktueller Plan bis Freitagmittag</b><br><span class="muted">Vorrat und bereits gekaufte Artikel werden berücksichtigt. Neue Zutaten für Mi–Fr sind ergänzt.</span></div>
+  </section>
   <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
 }
