@@ -445,6 +445,56 @@ async function finishCook(){
   const finishedKey=cookMode; cookMode=null;cookToken=null;cookServings=null;cookMultiplier=1;recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
 }
 
+
+function niceAmount(n){
+  if(!Number.isFinite(n)) return '';
+  const rounded=Math.round(n*100)/100;
+  const whole=Math.floor(rounded);
+  const frac=Math.round((rounded-whole)*100)/100;
+  const fractions=[
+    [0.25,'¼'],[0.33,'⅓'],[0.5,'½'],[0.67,'⅔'],[0.75,'¾']
+  ];
+  const hit=fractions.find(([v])=>Math.abs(frac-v)<0.02);
+  if(hit){
+    if(whole===0) return hit[1];
+    return `${whole} ${hit[1]}`;
+  }
+  return rounded.toLocaleString('de-DE',{maximumFractionDigits:2});
+}
+
+function scaleNumberToken(raw,factor){
+  const n=Number(String(raw).replace(',','.'));
+  return Number.isFinite(n)?niceAmount(n*factor):raw;
+}
+
+function scaleNeedLine(line,factor){
+  if(!factor || Math.abs(factor-1)<0.0001) return line;
+
+  // Mengen mit Küchen-/Gewichtseinheit, egal ob am Anfang oder mitten im Satz.
+  let out=line.replace(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l|EL|TL)\b/gi,
+    (_,num,unit)=>`${scaleNumberToken(num,factor)} ${unit}`);
+
+  // Stückangaben / zählbare Zutaten, die in den Kochschritten vorkommen.
+  const countWords='Eier?|Paprika|Tomaten?|Gurken?|Zwiebeln?|Pastinaken?|Blumenkohl|Schalotten?|Radieschen|Knoblauchzehen?|Feta|Schafskäse|Chicorée|Orangen?';
+  const re=new RegExp(`\\b(\\d+(?:[.,]\\d+)?)\\s+(${countWords})\\b`,'gi');
+  out=out.replace(re,(_,num,word)=>`${scaleNumberToken(num,factor)} ${word}`);
+
+  return out;
+}
+
+function scaleInstructionText(line,factor){
+  if(!factor || Math.abs(factor-1)<0.0001) return line;
+
+  // Nur Zutatenmengen skalieren – niemals Zeiten, Temperaturen oder TM6-Stufen.
+  let out=line.replace(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l|EL|TL)\b/gi,
+    (_,num,unit)=>`${scaleNumberToken(num,factor)} ${unit}`);
+
+  const countWords='Eier?|Paprika|Tomaten?|Gurken?|Zwiebeln?|Pastinaken?|Blumenkohl|Schalotten?|Radieschen|Knoblauchzehen?|Feta|Schafskäse|Chicorée|Orangen?';
+  const re=new RegExp(`\\b(\\d+(?:[.,]\\d+)?)\\s+(${countWords})\\b`,'gi');
+  out=out.replace(re,(_,num,word)=>`${scaleNumberToken(num,factor)} ${word}`);
+  return out;
+}
+
 function renderCookMode(){
   const c=tm6Cook[cookMode], s=c.steps[cookStep];
   const pct=Math.round(((cookStep+1)/c.steps.length)*100);
@@ -462,14 +512,14 @@ function renderCookMode(){
       <div><b>Anpassung</b><br>${c.adaptation}</div>
     </section>`:''}
 
-    <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Du kochst ${cookServings??c.defaultYield??'eine Rezeptmenge'} Portionen</b><br><span class="muted">${c.defaultYield?`Originalmenge: ${c.defaultYield} Portionen · Faktor ${cookMultiplier.toLocaleString('de-DE',{maximumFractionDigits:2})}`:'Zündersuppe ohne feste Buch-Portionszahl.'}</span></div></section>
+    <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Du kochst ${cookServings??c.defaultYield??'eine Rezeptmenge'} Portionen</b><br><span class="muted">${c.defaultYield?`Originalmenge: ${c.defaultYield} Portionen · Faktor ${cookMultiplier.toLocaleString('de-DE',{maximumFractionDigits:2})} · alle Zutatenmengen unten sind bereits angepasst`:'Zündersuppe ohne feste Buch-Portionszahl.'}</span></div></section>
 
     <section class="item" style="margin-top:18px;min-height:300px;display:flex;align-items:center">
       <div class="body" style="width:100%">
         <div class="eyebrow">SCHRITT ${cookStep+1}</div>
         <h2 style="font-size:32px;margin:8px 0 18px">${s.title}</h2>
-        ${s.needs&&s.needs.length?`<div style="margin:0 0 18px;padding:16px;border-radius:18px;background:#fff8e8"><b>Jetzt brauchst du</b><div style="margin-top:8px;line-height:1.6">${s.needs.map(x=>`• ${x}`).join('<br>')}</div></div>`:''}
-        <p class="desc" style="font-size:22px;line-height:1.45">${s.text}</p>
+        ${s.needs&&s.needs.length?`<div style="margin:0 0 18px;padding:16px;border-radius:18px;background:#fff8e8"><b>Jetzt brauchst du</b><div style="margin-top:8px;line-height:1.6">${s.needs.map(x=>`• ${scaleNeedLine(x,cookMultiplier)}`).join('<br>')}</div></div>`:''}
+        <p class="desc" style="font-size:22px;line-height:1.45">${scaleInstructionText(s.text,cookMultiplier)}</p>
         <div style="margin-top:26px;padding:20px;border-radius:20px;background:#edf3e9;text-align:center;font-size:24px;font-weight:800">${s.setting}</div>
       </div>
     </section>
