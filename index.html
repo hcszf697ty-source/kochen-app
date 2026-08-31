@@ -526,12 +526,33 @@ function renderRecipeDetail(key){
 function renderInventory(){
   const groups={};
   for(const r of inventoryRows){const loc=r.location||'Ohne Ort';(groups[loc] ||= []).push(r);}
+  const exact=inventoryRows.filter(r=>r.quantity_status==='known').length;
+  const unsure=inventoryRows.length-exact;
   document.getElementById('app').innerHTML=`<main class="shell">
   <header><div><div class="eyebrow">LIVE AUS SUPABASE</div><h1>Vorrat</h1></div><div class="actions"><button class="icon" onclick="loadInventory()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
-  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>${inventoryRows.length} Vorratsposten</b><br><span class="muted">Einkäufe mit „Eingeräumt“ landen automatisch hier. Beim Kochen werden exakte Mengen abgezogen; geschätzte Bestände werden nur als Verbrauch protokolliert.</span></div></section>
-  ${Object.entries(groups).map(([loc,items])=>`<section style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">${esc(loc)}</div><div class="list">
-  ${items.map(r=>`<article class="item"><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannt')}</h2><span class="pill ${r.quantity_status==='low'?'warn':''}">${r.quantity==null?'Menge unklar':esc(String(r.quantity)+' '+(r.unit||''))}</span></div><div class="meta">${esc(r.quantity_status||'')}${r.opened?' · geöffnet':''}</div></div></article>`).join('')}
-  </div></section>`).join('')}
+
+  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
+    <div><b>${inventoryRows.length} Vorratsposten · ${exact} genau</b><br>
+    <span class="muted">${unsure} Bestände sind noch geschätzt/unklar. Tippe einen Artikel an und trage die echte Menge ein.</span></div>
+  </section>
+
+  <button class="primary" onclick="openInventoryEditor()" style="width:100%;margin:12px 0 2px">＋ Vorrat hinzufügen</button>
+
+  ${Object.entries(groups).map(([loc,items])=>`<section style="margin-top:18px">
+    <div class="eyebrow" style="margin-bottom:8px">${esc(loc)}</div><div class="list">
+      ${items.map(r=>`<article class="item" onclick="openInventoryEditor('${r.id}')" style="cursor:pointer">
+        <div class="body"><div class="top">
+          <h2>${esc(r.foods?.name||'Unbekannt')}</h2>
+          <span class="pill ${r.quantity_status==='low'?'warn':''}">
+            ${r.quantity==null?'Menge unklar':esc(String(r.quantity)+' '+(r.unit||''))}
+          </span>
+        </div>
+        <div class="meta">${r.quantity_status==='known'?'genauer Bestand':r.quantity_status==='estimated'?'geschätzt':r.quantity_status==='low'?'wenig':'unklar'}${r.opened?' · geöffnet':''} · Tippen zum Bearbeiten</div>
+        </div>
+      </article>`).join('')}
+    </div>
+  </section>`).join('')}
+
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><b onclick="loadInventory()">Vorrat</b><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
 
@@ -587,13 +608,182 @@ async function toggle(id){
 
 async function loadInventory(){
   if(!householdId){activeTab='inventory';renderApp();return;}
-  const {data,error}=await sb.from('inventory_items')
-    .select('id,food_id,quantity,unit,location,quantity_status,opened,foods(name)')
-    .eq('household_id',householdId).order('location',{ascending:true});
-  inventoryRows=error?[]:(data||[]);
+  const [{data:inv,error},{data:foodsData,error:foodsError}] = await Promise.all([
+    sb.from('inventory_items')
+      .select('id,food_id,quantity,unit,location,quantity_status,opened,foods(name)')
+      .eq('household_id',householdId).order('location',{ascending:true}),
+    sb.from('foods').select('id,name,default_unit').order('name',{ascending:true})
+  ]);
+  inventoryRows=error?[]:(inv||[]);
+  foodOptions=foodsError?[]:(foodsData||[]);
   if(error) msg='Vorrat konnte nicht geladen werden: '+error.message;
   activeTab='inventory'; renderApp();
 }
+
+function openInventoryEditor(id=null){
+  inventoryEditId=id;
+  const r=id?inventoryRows.find(x=>x.id===id):null;
+  const name=r?.foods?.name||'';
+  const qty=r?.quantity??'';
+  const unit=r?.unit||'';
+  const loc=r?.location||'Kühlschrank';
+  const status=r?.quantity_status||'known';
+  const opened=!!r?.opened;
+
+  const overlay=document.createElement('div');
+  overlay.id='inventoryEditor';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(620px,100%);max-height:90vh;overflow:auto;background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px;box-shadow:0 -10px 40px rgba(0,0,0,.18)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div><div class="eyebrow">${id?'BESTAND BEARBEITEN':'NEUER VORRAT'}</div><h2 style="margin:4px 0 0">${id?esc(name):'Vorrat hinzufügen'}</h2></div>
+      <button class="icon" onclick="closeInventoryEditor()">×</button>
+    </div>
+
+    ${id?`<input id="invFoodId" type="hidden" value="${r.food_id}">`:
+      `<label style="display:block;margin-top:18px">Lebensmittel
+        <input id="invFoodName" list="foodList" placeholder="z. B. Joghurt 1,5 %" autocomplete="off" style="width:100%">
+        <datalist id="foodList">${foodOptions.map(f=>`<option value="${esc(f.name)}"></option>`).join('')}</datalist>
+      </label>`}
+
+    <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:10px;margin-top:14px">
+      <label>Menge
+        <input id="invQty" inputmode="decimal" type="number" step="0.01" min="0" value="${esc(String(qty))}" placeholder="z. B. 8" style="width:100%">
+      </label>
+      <label>Einheit
+        <input id="invUnit" value="${esc(unit)}" placeholder="g, ml, Stück …" style="width:100%">
+      </label>
+    </div>
+
+    <label style="display:block;margin-top:14px">Lagerort
+      <input id="invLoc" value="${esc(loc)}" placeholder="Kühlschrank, Vorratsschrank …" style="width:100%">
+    </label>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <label>Status
+        <select id="invStatus" style="width:100%;padding:12px;border-radius:12px;border:1px solid #d8d2c3;background:white">
+          <option value="known" ${status==='known'?'selected':''}>genau</option>
+          <option value="estimated" ${status==='estimated'?'selected':''}>geschätzt</option>
+          <option value="low" ${status==='low'?'selected':''}>wenig</option>
+          <option value="unknown" ${status==='unknown'?'selected':''}>unklar</option>
+        </select>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding-top:27px">
+        <input id="invOpened" type="checkbox" ${opened?'checked':''}> geöffnet
+      </label>
+    </div>
+
+    <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0">
+      <div><b>Manuelle Eingabe hat Vorrang</b><br><span class="muted">Wenn du „genau“ auswählst, gilt diese Menge als echter Bestand und ersetzt die bisherige Schätzung.</span></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      ${id?`<button class="secondary" style="flex:1" onclick="markInventoryEmpty('${id}')">Aufgebraucht</button>`:''}
+      <button class="primary" style="flex:2" onclick="saveInventoryEditor()">Speichern</button>
+    </div>
+  </section>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeInventoryEditor()});
+  document.body.appendChild(overlay);
+}
+
+function closeInventoryEditor(){
+  document.getElementById('inventoryEditor')?.remove();
+}
+
+async function saveInventoryEditor(){
+  const qtyRaw=document.getElementById('invQty').value;
+  const qty=qtyRaw===''?null:Number(qtyRaw);
+  const unit=document.getElementById('invUnit').value.trim();
+  const location=document.getElementById('invLoc').value.trim()||'Ohne Ort';
+  const quantity_status=document.getElementById('invStatus').value;
+  const opened=document.getElementById('invOpened').checked;
+
+  if(qty!==null && (Number.isNaN(qty)||qty<0)){alert('Bitte eine gültige Menge eingeben.');return;}
+
+  let foodId;
+  if(inventoryEditId){
+    foodId=document.getElementById('invFoodId').value;
+  }else{
+    const name=document.getElementById('invFoodName').value.trim();
+    if(!name){alert('Bitte ein Lebensmittel auswählen oder eingeben.');return;}
+    let food=foodOptions.find(f=>f.name.toLowerCase()===name.toLowerCase());
+    if(!food){
+      const {data,error}=await sb.from('foods').insert({name,default_unit:unit||null}).select('id,name,default_unit').single();
+      if(error){alert('Lebensmittel konnte nicht angelegt werden: '+error.message);return;}
+      food=data;
+      foodOptions.push(food);
+    }
+    foodId=food.id;
+  }
+
+  let error;
+  if(inventoryEditId){
+    ({error}=await sb.from('inventory_items').update({
+      quantity:qty,unit:unit||null,location,quantity_status,opened,last_checked_at:new Date().toISOString()
+    }).eq('id',inventoryEditId).eq('household_id',householdId));
+  }else{
+    const existing=inventoryRows.find(r=>r.food_id===foodId && (r.location||'')===location);
+    if(existing){
+      ({error}=await sb.from('inventory_items').update({
+        quantity:qty,unit:unit||null,quantity_status,opened,last_checked_at:new Date().toISOString()
+      }).eq('id',existing.id).eq('household_id',householdId));
+    }else{
+      ({error}=await sb.from('inventory_items').insert({
+        household_id:householdId,food_id:foodId,quantity:qty,unit:unit||null,location,quantity_status,opened,last_checked_at:new Date().toISOString()
+      }));
+    }
+  }
+  if(error){alert('Bestand konnte nicht gespeichert werden: '+error.message);return;}
+
+  await recalcShoppingForFood(foodId,qty,unit,quantity_status);
+  closeInventoryEditor();
+  inventoryEditId=null;
+  await loadInventory();
+}
+
+async function markInventoryEmpty(id){
+  const r=inventoryRows.find(x=>x.id===id);
+  if(!r)return;
+  const {error}=await sb.from('inventory_items').update({
+    quantity:0,quantity_status:'known',last_checked_at:new Date().toISOString()
+  }).eq('id',id).eq('household_id',householdId);
+  if(error){alert('Konnte nicht als aufgebraucht speichern: '+error.message);return;}
+  await recalcShoppingForFood(r.food_id,0,r.unit,'known');
+  closeInventoryEditor();
+  inventoryEditId=null;
+  await loadInventory();
+}
+
+function unitSimple(u){
+  return (u||'').toLowerCase().trim()
+    .replace('stück','st').replace('stck','st').replace('stk','st')
+    .replace('gramm','g').replace('kilogramm','kg')
+    .replace('milliliter','ml').replace('liter','l');
+}
+
+async function recalcShoppingForFood(foodId,qty,unit,status){
+  if(status!=='known' || qty===null) return;
+  const {data:items,error}=await sb.from('shopping_items')
+    .select('id,required_quantity,required_unit,covered_by_delivery,package_size,packages_to_buy,checked')
+    .eq('household_id',householdId).eq('food_id',foodId);
+  if(error || !items?.length) return;
+
+  for(const item of items){
+    if(unitSimple(item.required_unit)!==unitSimple(unit)) continue;
+    const required=Number(item.required_quantity||0);
+    const delivery=Number(item.covered_by_delivery||0);
+    const covered=Math.min(Number(qty||0),required);
+    const toBuy=Math.max(0,required-covered-delivery);
+    const pack=Number(item.package_size||0);
+    const packages=pack>0?Math.ceil(toBuy/pack):(toBuy>0?1:0);
+    await sb.from('shopping_items').update({
+      covered_by_inventory:covered,
+      quantity_to_buy:toBuy,
+      packages_to_buy:packages,
+      checked:toBuy===0 ? true : item.checked
+    }).eq('id',item.id);
+  }
+}
+
 async function putAway(id){
   const {data,error}=await sb.rpc('put_away_shopping_item',{p_shopping_item_id:id});
   if(error){alert('Einräumen nicht möglich: '+error.message);return;}
