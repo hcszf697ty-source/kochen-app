@@ -475,9 +475,10 @@ function scaleNeedLine(line,factor){
     (_,num,unit)=>`${scaleNumberToken(num,factor)} ${unit}`);
 
   // Stückangaben / zählbare Zutaten, die in den Kochschritten vorkommen.
-  const countWords='Eier?|Paprika|Tomaten?|Gurken?|Zwiebeln?|Pastinaken?|Blumenkohl|Schalotten?|Radieschen|Knoblauchzehen?|Feta|Schafskäse|Chicorée|Orangen?';
-  const re=new RegExp(`\\b(\\d+(?:[.,]\\d+)?)\\s+(${countWords})\\b`,'gi');
-  out=out.replace(re,(_,num,word)=>`${scaleNumberToken(num,factor)} ${word}`);
+  const countWords='Eier?|Paprika|Tomaten?|Gurken?|Zwiebeln?|Pastinaken?|Blumenkohl|Schalotten?|Radieschen|Knoblauchzehen?|Feta|Schafskäse|Chicorée|Orangen?|Champignons?|Pilze?|Kartoffeln?|Möhren?|Karotten?|Kohlrabi|Auberginen?|Frühlingszwiebeln?';
+  // Erlaubt Adjektive zwischen Zahl und Zutat, z. B. „3 rote Paprika“ oder „1 große Zwiebel“.
+  const re=new RegExp(`\\b(\\d+(?:[.,]\\d+)?)(\\s+(?:(?!${countWords}\\b)[A-Za-zÄÖÜäöüß-]+\\s+){0,3})(${countWords})\\b`,'gi');
+  out=out.replace(re,(_,num,middle,word)=>`${scaleNumberToken(num,factor)}${middle}${word}`);
 
   return out;
 }
@@ -489,9 +490,10 @@ function scaleInstructionText(line,factor){
   let out=line.replace(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l|EL|TL)\b/gi,
     (_,num,unit)=>`${scaleNumberToken(num,factor)} ${unit}`);
 
-  const countWords='Eier?|Paprika|Tomaten?|Gurken?|Zwiebeln?|Pastinaken?|Blumenkohl|Schalotten?|Radieschen|Knoblauchzehen?|Feta|Schafskäse|Chicorée|Orangen?';
-  const re=new RegExp(`\\b(\\d+(?:[.,]\\d+)?)\\s+(${countWords})\\b`,'gi');
-  out=out.replace(re,(_,num,word)=>`${scaleNumberToken(num,factor)} ${word}`);
+  const countWords='Eier?|Paprika|Tomaten?|Gurken?|Zwiebeln?|Pastinaken?|Blumenkohl|Schalotten?|Radieschen|Knoblauchzehen?|Feta|Schafskäse|Chicorée|Orangen?|Champignons?|Pilze?|Kartoffeln?|Möhren?|Karotten?|Kohlrabi|Auberginen?|Frühlingszwiebeln?';
+  // Erlaubt Adjektive zwischen Zahl und Zutat, z. B. „3 rote Paprika“ oder „1 große Zwiebel“.
+  const re=new RegExp(`\\b(\\d+(?:[.,]\\d+)?)(\\s+(?:(?!${countWords}\\b)[A-Za-zÄÖÜäöüß-]+\\s+){0,3})(${countWords})\\b`,'gi');
+  out=out.replace(re,(_,num,middle,word)=>`${scaleNumberToken(num,factor)}${middle}${word}`);
   return out;
 }
 
