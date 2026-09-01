@@ -26,7 +26,7 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 <div id="app"></div>
 <script>
 const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
-let rows=[], inventoryRows=[], preparedMealRows=[], filter='all', query='', userId='', householdId='', msg='';
+let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function formatBuy(r){
@@ -41,10 +41,14 @@ function formatBuy(r){
   return 'prüfen';
 }
 function reason(r){
-  const inv=Number(r.covered_by_inventory||0), del=Number(r.covered_by_delivery||0);
+  const inv=Number(r.covered_by_inventory||0), del=Number(r.covered_by_delivery||0), bought=Number(r.covered_by_purchased||0);
   if(r.category==='Vorrat prüfen') return 'Bestand noch nicht sicher bestätigt';
+  if(inv>0 && bought>0 && del>0) return 'Vorrat + bereits gekauft + Lieferung berücksichtigt';
+  if(inv>0 && bought>0) return 'Vorrat + bereits gekauft berücksichtigt';
   if(inv>0 && del>0) return 'Vorrat + Lieferung berücksichtigt';
-  if(inv>0) return 'Vorrat bereits abgezogen';
+  if(bought>0 && del>0) return 'Bereits gekauft + Lieferung berücksichtigt';
+  if(inv>0) return 'Vorrat bereits reserviert';
+  if(bought>0) return 'Bereits gekauft berücksichtigt';
   if(del>0) return 'Biokiste rechtzeitig berücksichtigt';
   return 'Für den Plan noch erforderlich';
 }
@@ -255,7 +259,7 @@ function renderPlan(){
     </div></article></section>
 
     <section class="notice" style="margin-top:14px">
-      <div><b>Planungsregeln</b><br>Kalorien-/Proteinziele prüfen · fertige verderbliche Reste zuerst · bereits gekaufte verderbliche Zutaten schützen · Vorrat → reservierter Verbrauch → rechtzeitige Biokiste → Einkauf.</div>
+      <div><b>Planungsregeln</b><br>Kalorien-/Proteinziele prüfen · fertige verderbliche Reste zuerst · bereits gekaufte verderbliche Zutaten schützen · Vorrat chronologisch reservieren → bereits gekauft → rechtzeitige Biokiste → Einkauf. Fehlmengen werden automatisch zur Einkaufsliste.</div>
     </section>
 
     <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><b onclick="activeTab='plan';renderApp()">Plan</b><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav>
@@ -671,12 +675,12 @@ function renderInventory(){
 
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
     <div><b>${inventoryRows.length} Vorratsposten · ${exact} genau</b><br>
-    <span class="muted">${unsure} Bestände sind noch geschätzt/unklar. Tippe einen Artikel an und trage die echte Menge ein.</span></div>
+    <span class="muted">${unsure} Bestände sind noch geschätzt/unklar. Tippe einen Artikel an und trage die echte Menge ein.<br>Bei genauen Beständen zeigt die App jetzt zusätzlich, was für kommende Gerichte reserviert und was wirklich noch frei ist.</span></div>
   </section>
 
   <button class="primary" onclick="openInventoryEditor()" style="width:100%;margin:12px 0 2px">＋ Vorrat hinzufügen</button>
 
-  ${preparedMealRows.length?`<section style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">FERTIGE MAHLZEITEN</div><div class="list">${preparedMealRows.map(r=>`<article class="item"><div class="body"><div class="top"><h2>${esc(r.name||'Fertige Mahlzeit')}</h2><span class="pill">${Number(r.portions).toLocaleString('de-DE')} Portionen</span></div><div class="meta">${esc(r.location||'Kühlschrank')}${r.cooked_at?' · gekocht '+new Date(r.cooked_at).toLocaleDateString('de-DE'):''}</div></div></article>`).join('')}</div></section>`:''}
+  ${preparedMealRows.length?`<section style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">FERTIGE MAHLZEITEN</div><div class="list">${preparedMealRows.map(r=>`<article class="item" onclick="openPreparedMealEditor('${r.id}')" style="cursor:pointer"><div class="body"><div class="top"><h2>${esc(r.name||'Fertige Mahlzeit')}</h2><span class="pill">${Number(r.portions).toLocaleString('de-DE')} Portionen</span></div><div class="meta">${esc(r.location||'Kühlschrank')}${r.cooked_at?' · gekocht '+new Date(r.cooked_at).toLocaleDateString('de-DE'):''} · Tippen zum Bearbeiten</div></div></article>`).join('')}</div></section>`:''}
 
   ${Object.entries(groups).map(([loc,items])=>`<section style="margin-top:18px">
     <div class="eyebrow" style="margin-bottom:8px">${esc(loc)}</div><div class="list">
@@ -688,6 +692,7 @@ function renderInventory(){
           </span>
         </div>
         <div class="meta">${r.quantity_status==='known'?'genauer Bestand':r.quantity_status==='estimated'?'geschätzt':r.quantity_status==='low'?'wenig':'unklar'}${r.opened?' · geöffnet':''} · Tippen zum Bearbeiten</div>
+        ${smartInventoryMeta(r)}
         </div>
       </article>`).join('')}
     </div>
@@ -731,9 +736,12 @@ function renderShopping(){
   <div class="filters">${[['all','Alle'],['buy','Zu kaufen'],['check','Prüfen'],['done','Erledigt']].map(x=>`<button class="${filter===x[0]?'active':''}" onclick="filter='${x[0]}';renderShopping()">${x[1]}</button>`).join('')}</div>
   ${msg?`<div class="notice"><div>${esc(msg)}</div>${userId&&msg.includes('noch kein Haushalt')?`<div class="uid"><code>${esc(userId)}</code><button onclick="copyUid()">User-ID kopieren</button></div>`:''}</div>`:''}
   <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
-    <div><b>Aktueller Plan bis Freitagmittag</b><br><span class="muted">Vorrat und bereits gekaufte Artikel werden berücksichtigt. Neue Zutaten für Mi–Fr sind ergänzt.</span></div>
+    <div><b>Smart-Abgleich aktiv</b><br><span class="muted">Der Bedarf wird nach Datum chronologisch reserviert: Vorrat → bereits gekauft → rechtzeitige Lieferung → Einkauf. Derselbe Bestand kann dadurch nicht mehr für zwei spätere Gerichte gleichzeitig verwendet werden. ${smartSummary?`${smartSummary.reservations||0} Zutatenbedarfe geprüft · ${smartSummary.auto_shopping_rows||0} automatische Einkaufsposten.`:'Beim Laden wird automatisch neu gerechnet.'}</span></div>
   </section>
-  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>`:''}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
+  <section class="notice" style="margin-bottom:12px;background:#fff8e8;border-color:#ead39a">
+    <div><b>Wichtig</b><br><span class="muted">Automatisch gerechnet wird nur für Rezepte, deren Zutaten vollständig in der Rezeptdatenbank erfasst sind. Noch unvollständige Kochbuchrezepte bleiben als manuelle Einkaufsposten erhalten.</span></div>
+  </section>
+  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}${r.auto_generated?' · automatisch aus dem Plan':r.manually_added?' · manuell geschützt':''}</div>`:''}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
 }
 
@@ -756,10 +764,49 @@ async function signup(){
 }
 async function logout(){await sb.auth.signOut();}
 async function copyUid(){await navigator.clipboard.writeText(userId);alert('User-ID kopiert');}
+
+async function refreshSmartShopping(showError=true){
+  if(!householdId)return null;
+  const {data,error}=await sb.rpc('refresh_smart_shopping',{p_household_id:householdId});
+  if(error){
+    if(showError) msg='Smart-Abgleich konnte nicht aktualisiert werden: '+error.message;
+    return null;
+  }
+  smartSummary=data||null;
+  return data;
+}
+
+function reservationForInventory(r){
+  const u=unitSimple(r.unit);
+  return reservationRows
+    .filter(x=>x.food_id===r.food_id && unitSimple(x.unit)===u)
+    .reduce((sum,x)=>sum+Number(x.reserved_inventory||0),0);
+}
+function totalKnownForPool(r){
+  const u=unitSimple(r.unit);
+  return inventoryRows
+    .filter(x=>x.food_id===r.food_id && x.quantity_status==='known' && unitSimple(x.unit)===u)
+    .reduce((sum,x)=>sum+Number(x.quantity||0),0);
+}
+function firstPoolRow(r){
+  const u=unitSimple(r.unit);
+  return inventoryRows.find(x=>x.food_id===r.food_id && unitSimple(x.unit)===u)?.id===r.id;
+}
+function smartInventoryMeta(r){
+  if(r.quantity_status!=='known' || r.quantity==null || !firstPoolRow(r)) return '';
+  const reserved=reservationForInventory(r);
+  if(reserved<=0)return '';
+  const total=totalKnownForPool(r);
+  const free=Math.max(0,total-reserved);
+  return `<div class="meta" style="margin-top:5px"><b>Plan:</b> ${reserved.toLocaleString('de-DE')} ${esc(r.unit||'')} reserviert · ${free.toLocaleString('de-DE')} ${esc(r.unit||'')} frei</div>`;
+}
+
 async function toggle(id){
   const r=rows.find(x=>x.id===id); if(!r)return; const next=!r.checked; r.checked=next; renderApp();
   const {error}=await sb.from('shopping_items').update({checked:next}).eq('id',id);
-  if(error){r.checked=!next;msg='Abhaken konnte nicht gespeichert werden: '+error.message;renderApp()}
+  if(error){r.checked=!next;msg='Abhaken konnte nicht gespeichert werden: '+error.message;renderApp();return;}
+  await refreshSmartShopping(false);
+  await loadRows(false);
 }
 
 async function loadPreparedMeals(){
@@ -770,16 +817,22 @@ async function loadPreparedMeals(){
 
 async function loadInventory(){
   if(!householdId){activeTab='inventory';renderApp();return;}
+  await refreshSmartShopping(false);
   await loadPreparedMeals();
-  const [{data:inv,error},{data:foodsData,error:foodsError}] = await Promise.all([
+  const [{data:inv,error},{data:foodsData,error:foodsError},{data:res,error:resError}] = await Promise.all([
     sb.from('inventory_items')
       .select('id,food_id,quantity,unit,location,quantity_status,opened,foods(name)')
       .eq('household_id',householdId).order('location',{ascending:true}),
-    sb.from('foods').select('id,name,default_unit').order('name',{ascending:true})
+    sb.from('foods').select('id,name,default_unit').order('name',{ascending:true}),
+    sb.from('inventory_reservations')
+      .select('id,food_id,needed_by,required_quantity,unit,reserved_inventory,reserved_delivery,reserved_purchased,shortage')
+      .eq('household_id',householdId).order('needed_by',{ascending:true})
   ]);
   inventoryRows=error?[]:(inv||[]);
   foodOptions=foodsError?[]:(foodsData||[]);
+  reservationRows=resError?[]:(res||[]);
   if(error) msg='Vorrat konnte nicht geladen werden: '+error.message;
+  if(resError) msg='Reservierungen konnten nicht geladen werden: '+resError.message;
   activeTab='inventory'; renderApp();
 }
 
@@ -897,7 +950,7 @@ async function saveInventoryEditor(){
   }
   if(error){alert('Bestand konnte nicht gespeichert werden: '+error.message);return;}
 
-  await recalcShoppingForFood(foodId,qty,unit,quantity_status);
+  await refreshSmartShopping(false);
   closeInventoryEditor();
   inventoryEditId=null;
   await loadInventory();
@@ -910,7 +963,7 @@ async function markInventoryEmpty(id){
     quantity:0,quantity_status:'known',last_checked_at:new Date().toISOString()
   }).eq('id',id).eq('household_id',householdId);
   if(error){alert('Konnte nicht als aufgebraucht speichern: '+error.message);return;}
-  await recalcShoppingForFood(r.food_id,0,r.unit,'known');
+  await refreshSmartShopping(false);
   closeInventoryEditor();
   inventoryEditId=null;
   await loadInventory();
@@ -950,11 +1003,12 @@ async function recalcShoppingForFood(foodId,qty,unit,status){
 async function putAway(id){
   const {data,error}=await sb.rpc('put_away_shopping_item',{p_shopping_item_id:id});
   if(error){alert('Einräumen nicht möglich: '+error.message);return;}
-  alert(`Eingeräumt: ${data.quantity_added} ${data.unit}`);
-  await loadRows();
+  await refreshSmartShopping(false);
+  alert(`Eingeräumt: ${data.quantity_added} ${data.unit} · Einkaufsliste neu berechnet`);
+  await loadRows(false);
 }
 
-async function loadRows(){
+async function loadRows(doRefresh=true){
   msg='';
   rows=[];
   householdId='';
@@ -979,10 +1033,11 @@ async function loadRows(){
   }
 
   householdId=member.household_id;
+  if(doRefresh) await refreshSmartShopping(false);
 
   const {data,error}=await sb
     .from('shopping_items')
-    .select('id,household_id,food_id,required_quantity,required_unit,covered_by_inventory,covered_by_delivery,quantity_to_buy,package_size,package_unit,packages_to_buy,category,checked,manually_added,needed_by,foods(name)')
+    .select('id,household_id,food_id,required_quantity,required_unit,covered_by_inventory,covered_by_delivery,covered_by_purchased,quantity_to_buy,package_size,package_unit,packages_to_buy,category,checked,manually_added,auto_generated,needed_by,foods(name)')
     .eq('household_id',householdId)
     .order('needed_by',{ascending:true});
 
