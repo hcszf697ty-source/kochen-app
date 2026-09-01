@@ -26,7 +26,7 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 <div id="app"></div>
 <script>
 const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
-let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
+let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], portionRows=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function formatBuy(r){
@@ -137,23 +137,162 @@ const recipeNutrition={
   'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'}
 };
 
-const defaultAdultPortions={user:1,husband:1};
+const recipeDefaultCooked={
+  'Quark mit Beeren':2,
+  'Genießer-Salat':4,
+  'Sesam-Tofu auf buntem Salat':4,
+  'Lachs mit scharfem Kohlrabi-Karotten-Gemüse':4,
+  'Hähnchen-Sesam-Salat':4,
+  'Auberginen-Hack-Auflauf':4,
+  'Gebackener Feta auf Paprika-Tomaten':4,
+  'Blumenkohlsuppe':5,
+  'Tomatensuppe':null
+};
+
+function dayKeyFor(day){
+  return Object.entries(weekPlan).find(([,v])=>v===day)?.[0]||null;
+}
+function mealTypeForLabel(label){
+  const s=(label||'').toLowerCase();
+  if(s.includes('frühstück'))return 'BREAKFAST';
+  if(s.includes('mittag'))return 'LUNCH';
+  return 'DINNER';
+}
+function mealKey(date,meal){
+  return `${date}|${mealTypeForLabel(meal[0])}|${plainRecipeTitle(meal[1])}`;
+}
+function storedPortion(date,meal,person){
+  const key=mealKey(date,meal);
+  return portionRows.find(r=>`${r.meal_date}|${r.meal_type}|${r.recipe_title}`===key && r.person_key===person)?.planned_portions;
+}
+function suggestedAdultTotal(meal,cooked){
+  const label=(meal[0]||'').toLowerCase();
+  const meta=(meal[2]||'').toLowerCase();
+  if(label.includes('frühstück') || label.includes('mittag') || meta.includes('2 erwachsene') || meta.includes('2 restportionen')) return Math.min(Number(cooked||2),2);
+  return Math.min(Number(cooked||2.3),2.3);
+}
+function suggestedSplit(meal){
+  const title=plainRecipeTitle(meal[1]);
+  const cooked=recipeDefaultCooked[title] ?? 2;
+  const adultTotal=suggestedAdultTotal(meal,cooked);
+  const userMid=(nutritionTargets.user.kcalMin+nutritionTargets.user.kcalMax)/2;
+  const marcelMid=(nutritionTargets.husband.kcalMin+nutritionTargets.husband.kcalMax)/2;
+  const user=adultTotal*(userMid/(userMid+marcelMid));
+  const marcel=adultTotal-user;
+  return {cooked:Number(cooked),user:Number(user.toFixed(2)),marcel:Number(marcel.toFixed(2))};
+}
+function splitForMeal(date,meal){
+  const s=suggestedSplit(meal);
+  const u=storedPortion(date,meal,'user');
+  const m=storedPortion(date,meal,'marcel');
+  return {
+    cooked:s.cooked,
+    user:u==null?s.user:Number(u),
+    marcel:m==null?s.marcel:Number(m),
+    custom:u!=null||m!=null
+  };
+}
+function splitMeta(date,meal){
+  const s=splitForMeal(date,meal);
+  const rest=Math.max(0,s.cooked-s.user-s.marcel);
+  return `<div class="meta" style="margin-top:7px"><b>Aufteilen:</b> Du ${s.user.toLocaleString('de-DE')} Port. · Marcel ${s.marcel.toLocaleString('de-DE')} Port.${rest>0?` · ${rest.toLocaleString('de-DE')} Port. Familie/Rest`:''}${s.custom?' · angepasst':' · Vorschlag'}</div>`;
+}
+function openPortionSplit(date,index){
+  const day=weekPlan[date], meal=day?.meals?.[index]; if(!meal)return;
+  const title=plainRecipeTitle(meal[1]);
+  const s=splitForMeal(date,meal);
+  const n=recipeNutrition[title];
+  const overlay=document.createElement('div');
+  overlay.id='portionSplitEditor';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px;max-height:92vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+      <div><div class="eyebrow">SO AUFTEILEN</div><h2 style="margin:4px 0 0">${esc(title)}</h2></div>
+      <button class="icon" onclick="document.getElementById('portionSplitEditor')?.remove()">×</button>
+    </div>
+    <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0">
+      <div><b>Vorschlag aus euren Tageszielen</b><br><span class="muted">Du und Marcel werden getrennt gerechnet. Kinder/Familienrest bleiben außerhalb eures Ernährungschecks.</span></div>
+    </div>
+    <label style="display:block;margin-top:14px">Gekocht / zubereitet
+      <input id="splitCooked" type="number" min="0" step="0.1" value="${s.cooked}" style="width:100%" oninput="updateSplitPreview('${date}',${index})">
+    </label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <label>Du
+        <input id="splitUser" type="number" min="0" step="0.05" value="${s.user}" style="width:100%" oninput="updateSplitPreview('${date}',${index})">
+      </label>
+      <label>Marcel
+        <input id="splitMarcel" type="number" min="0" step="0.05" value="${s.marcel}" style="width:100%" oninput="updateSplitPreview('${date}',${index})">
+      </label>
+    </div>
+    <div id="splitPreview" class="notice" style="margin-top:14px"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="secondary" style="flex:1" onclick="resetPortionSplit('${date}',${index})">Vorschlag</button>
+      <button class="primary" style="flex:1.4" onclick="savePortionSplit('${date}',${index})">Speichern</button>
+    </div>
+  </section>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+  document.body.appendChild(overlay);
+  updateSplitPreview(date,index);
+}
+function updateSplitPreview(date,index){
+  const meal=weekPlan[date]?.meals?.[index]; if(!meal)return;
+  const title=plainRecipeTitle(meal[1]), n=recipeNutrition[title];
+  const cooked=Number(document.getElementById('splitCooked')?.value||0);
+  const u=Number(document.getElementById('splitUser')?.value||0);
+  const m=Number(document.getElementById('splitMarcel')?.value||0);
+  const rest=cooked-u-m;
+  const nutrient=(p)=>n?`${Math.round(n.kcal*p)} kcal · ${Math.round(n.protein*p)} g Protein${n.carbs!=null?` · ${Math.round(n.carbs*p)} g KH`:''}`:'Nährwerte für dieses Rezept noch offen';
+  document.getElementById('splitPreview').innerHTML=`<div>
+    <b>Beim Anrichten</b><br>
+    <span class="muted">Du: ${u.toLocaleString('de-DE')} Portionen · ${nutrient(u)}<br>
+    Marcel: ${m.toLocaleString('de-DE')} Portionen · ${nutrient(m)}<br>
+    ${rest>=0?`Familie/übrig: ${rest.toLocaleString('de-DE')} Portionen`:`⚠ Verplant: ${Math.abs(rest).toLocaleString('de-DE')} Portionen mehr als gekocht`}</span>
+  </div>`;
+}
+function resetPortionSplit(date,index){
+  const s=suggestedSplit(weekPlan[date].meals[index]);
+  document.getElementById('splitCooked').value=s.cooked;
+  document.getElementById('splitUser').value=s.user;
+  document.getElementById('splitMarcel').value=s.marcel;
+  updateSplitPreview(date,index);
+}
+async function savePortionSplit(date,index){
+  const meal=weekPlan[date]?.meals?.[index]; if(!meal || !householdId)return;
+  const title=plainRecipeTitle(meal[1]), mealType=mealTypeForLabel(meal[0]);
+  const cooked=Number(document.getElementById('splitCooked')?.value||0);
+  const user=Number(document.getElementById('splitUser')?.value||0);
+  const marcel=Number(document.getElementById('splitMarcel')?.value||0);
+  if(user<0||marcel<0||cooked<0){alert('Bitte nur positive Mengen eintragen.');return;}
+  if(user+marcel>cooked+0.0001){
+    if(!confirm('Du und Marcel sind zusammen größer als die gekochte Menge. Trotzdem speichern?'))return;
+  }
+  const payload=[
+    {household_id:householdId,meal_date:date,meal_type:mealType,recipe_title:title,person_key:'user',planned_portions:user,updated_at:new Date().toISOString()},
+    {household_id:householdId,meal_date:date,meal_type:mealType,recipe_title:title,person_key:'marcel',planned_portions:marcel,updated_at:new Date().toISOString()}
+  ];
+  const {data,error}=await sb.from('meal_person_portions').upsert(payload,{onConflict:'household_id,meal_date,meal_type,recipe_title,person_key'}).select();
+  if(error){alert('Aufteilung konnte nicht gespeichert werden: '+error.message);return;}
+  portionRows=portionRows.filter(r=>!(r.meal_date===date && r.meal_type===mealType && r.recipe_title===title));
+  portionRows.push(...(data||[]));
+  document.getElementById('portionSplitEditor')?.remove();
+  renderApp();
+}
 function nutritionForDay(day){
+  const date=dayKeyFor(day);
   const result={
     user:{kcal:0,protein:0,carbs:0,carbsKnown:true},
     husband:{kcal:0,protein:0,carbs:0,carbsKnown:true},
     missing:[]
   };
-  (day.meals||[]).forEach(m=>{
-    const title=plainRecipeTitle(m[1]);
-    const n=recipeNutrition[title];
+  (day.meals||[]).forEach(meal=>{
+    const title=plainRecipeTitle(meal[1]), n=recipeNutrition[title];
     if(!n){result.missing.push(title);return;}
-    for(const person of ['user','husband']){
-      const factor=defaultAdultPortions[person];
-      result[person].kcal+=n.kcal*factor;
-      result[person].protein+=n.protein*factor;
+    const split=splitForMeal(date,meal);
+    for(const [person,portions] of [['user',split.user],['husband',split.marcel]]){
+      result[person].kcal+=n.kcal*portions;
+      result[person].protein+=n.protein*portions;
       if(n.carbs==null)result[person].carbsKnown=false;
-      else result[person].carbs+=n.carbs*factor;
+      else result[person].carbs+=n.carbs*portions;
     }
   });
   result.missing=[...new Set(result.missing)];
@@ -181,7 +320,7 @@ function nutritionCheckCard(day){
       ${line('user',n.user,u)}
       ${line('husband',n.husband,m)}
       ${incomplete?`<div class="meta" style="margin-top:8px">Noch ohne verlässliche Nährwerte: ${n.missing.join(', ')}. Diese Mahlzeiten sind in den Summen noch nicht enthalten.</div>`:''}
-      <div class="meta" style="margin-top:8px">Rechnung derzeit mit 1 Kochbuchportion je Erwachsenem und Mahlzeit. Gekochte Familienportionen und gegessene Erwachsenenportionen bleiben getrennt.</div>
+      <div class="meta" style="margin-top:8px">Die Werte verwenden jetzt eure Aufteilung je Mahlzeit. Tippe bei einem Gericht auf „So aufteilen“, um sie anzupassen.</div>
     </div>
   </section>`;
 }
@@ -275,9 +414,11 @@ function renderToday(){
     ${(()=>{const t=dayTimeSummary(d);return t?`<section class="notice" style="margin-top:14px"><div><b>Kochaufwand heute</b><br><span class="muted">${t.active} Min aktiv · ${t.total} Min gesamt</span></div></section>`:''})()}
 
     <section class="list">
-      ${d.meals.map(m=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<article class="item"><div class="body">
+      ${d.meals.map((m,i)=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<article class="item"><div class="body">
         <div class="top"><h2>${m[0]} · ${m[1]}</h2><span class="pill">${d.phase}</span></div>
         <div class="meta">${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</div>
+        ${splitMeta(todayIso,m)}
+        <button onclick="openPortionSplit('${todayIso}',${i})" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">So aufteilen</button>
       </div></article>`}).join('')}
     </section>
 
@@ -318,7 +459,11 @@ function renderPlan(){
 
     <section class="list"><article class="item"><div class="body">
       <div class="top"><h2>${d.label}</h2><span class="pill">${d.phase}</span></div>
-      ${d.meals.map(m=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<p class="desc"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</span></p>`}).join('')}
+      ${d.meals.map((m,i)=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<div style="padding:10px 0;border-bottom:1px solid #e7e1d5">
+        <p class="desc" style="margin:0"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</span></p>
+        ${splitMeta(planDay,m)}
+        <button onclick="openPortionSplit('${planDay}',${i})" style="margin-top:8px;padding:9px 12px;border:1px solid #294936;border-radius:13px;background:#fffdf7;color:#294936;font-weight:700">So aufteilen</button>
+      </div>`}).join('')}
       ${(d.preps||[]).map(x=>`<div style="height:10px"></div>${prepCard(x[0],x[1]||'',`${x[2]}${timeMetaFor(x[0])?` · ${timeMetaFor(x[0])}`:''}`)}`).join('')}
       ${d.note?`<div class="meta" style="margin-top:10px">${d.note}</div>`:''}
     </div></article></section>
@@ -1099,6 +1244,13 @@ async function loadRows(doRefresh=true){
 
   householdId=member.household_id;
   if(doRefresh) await refreshSmartShopping(false);
+
+  const {data:portionData,error:portionError}=await sb.from('meal_person_portions')
+    .select('id,meal_date,meal_type,recipe_title,person_key,planned_portions')
+    .eq('household_id',householdId)
+    .order('meal_date',{ascending:true});
+  portionRows=portionError?[]:(portionData||[]);
+  if(portionError) msg='Portionsaufteilung konnte nicht geladen werden: '+portionError.message;
 
   const {data,error}=await sb
     .from('shopping_items')
