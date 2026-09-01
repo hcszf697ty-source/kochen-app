@@ -26,7 +26,7 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 <div id="app"></div>
 <script>
 const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
-let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], portionRows=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
+let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], portionRows=[], substitutionPrefs=[], mealSubstitutions=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function formatBuy(r){
@@ -927,6 +927,43 @@ async function saveRealPurchase(id){
   document.getElementById('realPurchase')?.remove(); await putAway(id);
 }
 
+
+function substitutionSuggestionForShopping(r){
+  if(r.checked || r.category==='Vorrat prüfen' || Number(r.quantity_to_buy||0)<=0) return null;
+  const pref=substitutionPrefs.find(p=>p.required_food_id===r.food_id && p.requires_confirmation);
+  if(!pref)return null;
+  const needed=Number(r.quantity_to_buy||0)*Number(pref.ratio||1);
+  const candidates=inventoryRows.filter(x=>x.food_id===pref.substitute_food_id && unitSimple(x.unit)===unitSimple(r.required_unit) && Number(x.quantity||0)>0);
+  const available=candidates.reduce((s,x)=>s+Number(x.quantity||0),0);
+  if(available+1e-9<needed)return null;
+  const foodName=pref.substitute_food?.name||'Alternative aus dem Vorrat';
+  const already=mealSubstitutions.find(x=>x.required_food_id===r.food_id && x.substitute_food_id===pref.substitute_food_id && x.meal_date===r.needed_by && x.status==='planned');
+  return {pref,needed,available,foodName,already};
+}
+async function acceptShoppingSubstitution(shoppingId){
+  const r=rows.find(x=>x.id===shoppingId); if(!r)return;
+  const s=substitutionSuggestionForShopping(r); if(!s)return;
+  const recipeTitle=(r.foods?.name==='Rote Paprika' && r.needed_by==='2026-09-01')?'Gebackener Feta auf Paprika-Tomaten':'Geplante Mahlzeit';
+  const payload={
+    household_id:householdId,meal_date:r.needed_by,recipe_title:recipeTitle,
+    required_food_id:r.food_id,substitute_food_id:s.pref.substitute_food_id,
+    required_quantity:Number(r.quantity_to_buy),substitute_quantity:s.needed,
+    unit:r.required_unit,status:'planned',
+    note:'Vom Nutzer als Vorratsalternative bestätigt; Originalrezept bleibt unverändert.',
+    updated_at:new Date().toISOString()
+  };
+  const {data,error}=await sb.from('meal_ingredient_substitutions').upsert(payload,{onConflict:'household_id,meal_date,recipe_title,required_food_id,substitute_food_id'}).select();
+  if(error){alert('Alternative konnte nicht gespeichert werden: '+error.message);return;}
+  mealSubstitutions=mealSubstitutions.filter(x=>!(x.required_food_id===r.food_id&&x.substitute_food_id===s.pref.substitute_food_id&&x.meal_date===r.needed_by));
+  mealSubstitutions.push(...(data||[]));
+  // Der heutige Einkaufsposten ist durch die bestätigte Alternative abgedeckt.
+  const {error:e2}=await sb.from('shopping_items').update({checked:true}).eq('id',r.id);
+  if(e2){alert('Alternative gespeichert, Einkaufsposten konnte aber nicht ausgeblendet werden: '+e2.message);return;}
+  r.checked=true;
+  msg=`Alternative bestätigt: ${s.needed.toLocaleString('de-DE')} ${r.required_unit} ${s.foodName} statt fehlender ${r.foods?.name||'Zutat'}.`;
+  renderShopping();
+}
+
 function renderShopping(){
   const vis=rows.filter(r=>{
     const name=(r.foods?.name||'').toLowerCase();
@@ -951,7 +988,7 @@ function renderShopping(){
   <section class="notice" style="margin-bottom:12px;background:#fff8e8;border-color:#ead39a">
     <div><b>Wichtig</b><br><span class="muted">Automatisch gerechnet wird nur für Rezepte, deren Zutaten vollständig in der Rezeptdatenbank erfasst sind. Noch unvollständige Kochbuchrezepte bleiben als manuelle Einkaufsposten erhalten.</span></div>
   </section>
-  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}${r.auto_generated?' · automatisch aus dem Plan':r.manually_added?' · manuell geschützt':''}</div>`:''}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
+  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}${r.auto_generated?' · automatisch aus dem Plan':r.manually_added?' · manuell geschützt':''}</div>`:''}${(()=>{const s=substitutionSuggestionForShopping(r);return s&&!s.already?`<div class="notice" style="margin-top:10px;background:#edf3e9;border-color:#d7e2d0"><div><b>Alternative im Vorrat gefunden</b><br><span class="muted">${s.needed.toLocaleString('de-DE')} ${esc(r.required_unit)} ${esc(s.foodName)} können die Fehlmenge ersetzen. Originalrezept bleibt dokumentiert.</span><br><button onclick="acceptShoppingSubstitution('${r.id}')" style="margin-top:9px;padding:9px 12px;border:0;border-radius:13px;background:#294936;color:white;font-weight:700">Alternative verwenden</button></div></div>`:s?.already?`<div class="meta" style="margin-top:8px">✓ Alternative bestätigt: ${esc(s.foodName)}</div>`:''})()}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
 }
 
@@ -1251,6 +1288,15 @@ async function loadRows(doRefresh=true){
     .order('meal_date',{ascending:true});
   portionRows=portionError?[]:(portionData||[]);
   if(portionError) msg='Portionsaufteilung konnte nicht geladen werden: '+portionError.message;
+
+  const [{data:prefData},{data:subData},{data:invData}]=await Promise.all([
+    sb.from('ingredient_substitution_preferences').select('id,required_food_id,substitute_food_id,ratio,requires_confirmation,note,substitute_food:foods!ingredient_substitution_preferences_substitute_food_id_fkey(name)').eq('household_id',householdId),
+    sb.from('meal_ingredient_substitutions').select('id,meal_date,recipe_title,required_food_id,substitute_food_id,required_quantity,substitute_quantity,unit,status,note').eq('household_id',householdId),
+    sb.from('inventory_items').select('id,food_id,quantity,unit,quantity_status,foods(name)').eq('household_id',householdId)
+  ]);
+  substitutionPrefs=prefData||[];
+  mealSubstitutions=subData||[];
+  if(invData) inventoryRows=invData;
 
   const {data,error}=await sb
     .from('shopping_items')
