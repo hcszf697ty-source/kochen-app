@@ -133,6 +133,7 @@ const recipeNutrition={
   'Sesam-Tofu auf buntem Salat':{kcal:427,protein:24,carbs:27,source:'Kochbuch'},
   'Lachs mit scharfem Kohlrabi-Karotten-Gemüse':{kcal:434,protein:35,carbs:21,source:'Kochbuch'},
   'Hähnchen-Sesam-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
+  'Hähnchen mit Sesamkruste auf Tomaten-Gurken-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
   'Auberginen-Hack-Auflauf':{kcal:486,protein:48,carbs:20,source:'Kochbuch'},
   'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'}
 };
@@ -366,25 +367,25 @@ const weekPlan = {
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
       ['Mittag außer Haus',recipeLink('Genießer-Salat','geniesser'),'2 Restportionen · heute aufbrauchen'],
-      ['Abend',recipeLink('Auberginen-Hack-Auflauf',null),'Kochbuchrezept']
+      ['Abend',recipeLink('Auberginen-Hack-Auflauf','aubergine'),'Kochbuchrezept']
     ],
     note:'Die fertigen Salatreste haben Vorrang. Das bereits gekaufte Hähnchen bleibt eingeplant.',
-    preps:[['Hähnchen-Sesam-Salat',null,'Heute vorbereiten · Mittagessen Donnerstag · Hähnchen bereits gekauft']]
+    preps:[['Hähnchen-Sesam-Salat','haehnchen','Heute vorbereiten · Mittagessen Donnerstag · Hähnchen bereits gekauft']]
   },
   '2026-09-03':{
     label:'Do · 03.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat',null),'am Mittwoch vorbereitet · Hähnchen bereits gekauft'],
-      ['Abend',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse',null),'600 g Lachs · 500 g Kartoffeln · 300 g Kohlrabi · 200 g Karotten']
+      ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'am Mittwoch vorbereitet · Hähnchen bereits gekauft'],
+      ['Abend',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse','lachs'),'600 g Lachs · 500 g Kartoffeln · 300 g Kohlrabi · 200 g Karotten']
     ],
     note:'Bereits gekaufte verderbliche Zutaten werden geschützt und zeitnah verplant.',
-    preps:[['Sesam-Tofu auf buntem Salat',null,'Heute vorbereiten · Mittagessen Freitag']]
+    preps:[['Sesam-Tofu auf buntem Salat','tofu','Heute vorbereiten · Mittagessen Freitag']]
   },
   '2026-09-04':{
     label:'Fr · 04.09.', phase:'Turbo',
     meals:[
-      ['Mittag außer Haus',recipeLink('Sesam-Tofu auf buntem Salat',null),'Kochbuch S. 53 · glutenfreie Soja-/Teriyakisauce und Reismehl verwenden']
+      ['Mittag außer Haus',recipeLink('Sesam-Tofu auf buntem Salat','tofu'),'Kochbuch S. 53 · glutenfreie Soja-/Teriyakisauce und Reismehl verwenden']
     ],
     note:'Freitag ist derzeit bis zum Mittag geplant.',
     preps:[]
@@ -566,6 +567,100 @@ const recipeData = {
     ],
     adaptation: '',
     note: 'Glutenfreie Gewürzmischungen verwenden, falls Mischprodukte eingesetzt werden.'
+  },
+  aubergine: {
+    title: 'Auberginen-Hack-Auflauf',
+    phase: 'Turbo',
+    meta: 'Abendessen · 4 Portionen',
+    ingredients: [
+      '1 Aubergine',
+      '1 kleine Zwiebel',
+      '2 Knoblauchzehen',
+      '400 g Rinderhackfleisch, mager',
+      '400 g gehackte Tomaten aus der Dose',
+      'etwas Oregano',
+      '1 EL Basilikum, geschnitten',
+      '100 g Mozzarella, gerieben',
+      '1 TL Parmesan 30 % Fett, gerieben',
+      'Salz und Pfeffer'
+    ],
+    adaptation: '',
+    note: 'Kochbuch S. 40 · 486 kcal · 48 g Protein · 20 g KH pro Portion.'
+  },
+  haehnchen: {
+    title: 'Hähnchen-Sesam-Salat',
+    displayTitle: 'Hähnchen mit Sesamkruste auf Tomaten-Gurken-Salat',
+    phase: 'Turbo',
+    meta: 'Mittag · 4 Portionen · Lunchbox geeignet',
+    ingredients: [
+      '600 g Hähnchenbrustfilet',
+      '2 Eier',
+      '40 g Reismehl (glutenfreie Anpassung für Mehl)',
+      '80 g Sesamsamen',
+      '3 EL Rapsöl',
+      '125 g Joghurt 1,5 %',
+      '2 EL Zitronensaft',
+      '1 EL Honig',
+      '2 TL frisch geriebener Ingwer',
+      '2 Gurken',
+      '4 Fleischtomaten',
+      '1 rote Zwiebel',
+      '½ Bund Koriander',
+      '1 großer Salat',
+      'Salz und Pfeffer'
+    ],
+    adaptation: '40 g Mehl aus dem Kochbuch werden glutenfrei durch Reismehl ersetzt.',
+    note: 'Kochbuch S. 36 · korrigiert nach dem klaren Foto: 80 g Sesam und 3 EL Rapsöl. 489 kcal · 47 g Protein · 24 g KH pro Portion.'
+  },
+  lachs: {
+    title: 'Lachs mit scharfem Kohlrabi-Karotten-Gemüse',
+    phase: 'Turbo',
+    meta: 'Abendessen · 4 Portionen',
+    ingredients: [
+      '600 g Lachs',
+      '1 EL Rapsöl',
+      'Salz, Pfeffer und Dill',
+      '500 g Kartoffeln',
+      '400 ml glutenfreie Gemüsebrühe',
+      '300 g Kohlrabi',
+      '200 g Karotten',
+      '300 ml glutenfreie Gemüsebrühe',
+      '1 TL Currypulver',
+      '1 Prise Cayennepfeffer',
+      '3 EL Kochsahne 15 %',
+      '1 EL Petersilie',
+      '20 Schnittlauchhalme'
+    ],
+    adaptation: '',
+    note: 'Kochbuch S. 49 · 434 kcal · 35 g Protein · 21 g KH pro Portion.'
+  },
+  tofu: {
+    title: 'Sesam-Tofu auf buntem Salat',
+    phase: 'Turbo',
+    meta: 'Mittag · 4 Portionen · Lunchbox geeignet',
+    ingredients: [
+      '400 g Tofu',
+      '4 EL glutenfreie Sojasoße',
+      '1 EL glutenfreie Teriyaki-Soße',
+      '1 TL Currypulver',
+      '2 EL Reismehl (glutenfreie Anpassung)',
+      '1 Ei',
+      '60 g Sesamsamen',
+      '2 EL Rapsöl zum Braten',
+      '1 Gurke',
+      '2 Orangen',
+      '200 g Mischsalat',
+      '2 Chicorée',
+      '1 Beet Kresse',
+      '2 cm Ingwer',
+      '3 EL Orangensaft',
+      '3 EL Apfelessig',
+      '1 TL Honig',
+      '2 EL Rapsöl für das Dressing',
+      'Salz und Pfeffer'
+    ],
+    adaptation: 'Reismehl sowie glutenfreie Soja- und Teriyaki-Soße verwenden.',
+    note: 'Kochbuch S. 53 · 427 kcal · 24 g Protein · 27 g KH pro Portion.'
   }
 };
 
@@ -632,12 +727,66 @@ const tm6Cook = {
       {title:'Auflaufform füllen',needs:['Paprika-Tomaten-Sauce','4 × 180 g Feta/Schafskäse','Thymian','Rosmarin'],text:'Sauce in eine große Auflaufform geben. Die vier Feta-Stücke daraufsetzen und mit Thymian und Rosmarin bestreuen.',setting:'Vorbereitung Backofen',book:'1 Kochbuch-Rezeptmenge für 4 Personen.'},
       {title:'Backen',needs:['vorbereitete Auflaufform'],text:'Im vorgeheizten Ofen backen, bis der Feta heiß und leicht gebräunt ist.',setting:'15–20 Min. · 200 °C O/U',book:'Direkt servieren.'}
     ]
+  },
+  aubergine: {
+    title:'Auberginen-Hack-Auflauf',
+    adaptation:'',
+    defaultYield:4,
+    steps:[
+      {title:'Backofen & Aubergine',needs:['1 Aubergine','Salz'],text:'Backofen auf 200 °C Umluft vorheizen. Aubergine in Scheiben schneiden und leicht salzen.',setting:'Backofen · 200 °C Umluft',book:'Kochbuch: Aubergine in Scheiben schneiden und salzen.'},
+      {title:'Aubergine anbraten',needs:['Auberginenscheiben'],text:'Auberginenscheiben in einer beschichteten Pfanne von beiden Seiten anbraten.',setting:'Pfanne · ca. 5 Min.',book:'Das Kochbuch sieht etwa 5 Minuten Braten vor.'},
+      {title:'Zwiebel & Knoblauch',needs:['1 kleine Zwiebel, halbiert','2 Knoblauchzehen'],text:'Zwiebel und Knoblauch in den Mixtopf geben, zerkleinern und mit dem Spatel nach unten schieben.',setting:'5 Sek. · Stufe 5',book:'TM6-Übertragung des Kleinschneidens.'},
+      {title:'Hackfleisch anbraten',needs:['400 g mageres Rinderhackfleisch'],text:'Hackfleisch in einer großen Pfanne krümelig anbraten. Zwiebel und Knoblauch dazugeben.',setting:'Pfanne · ca. 3 Min.',book:'Kochbuch: Hackfleisch etwa 3 Minuten braten.'},
+      {title:'Tomatensauce',needs:['400 g gehackte Tomaten','etwas Oregano','1 EL Basilikum','Salz','Pfeffer'],text:'Tomaten und Gewürze zum Hackfleisch geben und köcheln lassen.',setting:'Pfanne · ca. 10 Min.',book:'Kochbuch: Tomaten zugeben, würzen und etwa 10 Minuten köcheln.'},
+      {title:'Schichten',needs:['gebratene Aubergine','Hack-Tomaten-Sauce','100 g geriebener Mozzarella','1 TL geriebener Parmesan 30 %'],text:'Aubergine und Hack-Tomaten-Sauce in eine Auflaufform schichten. Mit Mozzarella und Parmesan bestreuen.',setting:'Auflaufform',book:'Entspricht der Schichtung des Kochbuchrezepts.'},
+      {title:'Backen',needs:['vorbereitete Auflaufform'],text:'Auflauf im vorgeheizten Ofen backen.',setting:'15 Min. · 200 °C Umluft',book:'Kochbuch: etwa 15 Minuten backen.'}
+    ]
+  },
+  haehnchen: {
+    title:'Hähnchen-Sesam-Salat',
+    adaptation:'Glutenfrei: 40 g Reismehl statt Mehl.',
+    defaultYield:4,
+    steps:[
+      {title:'Backofen vorheizen',needs:[],text:'Backofen auf 180 °C vorheizen.',setting:'Backofen · 180 °C',book:'Kochbuch: Backofen auf 180 °C vorheizen.'},
+      {title:'Panierstraße',needs:['600 g Hähnchenbrustfilet','40 g Reismehl','2 Eier','80 g Sesamsamen','Salz und Pfeffer'],text:'Hähnchen portionieren und würzen. Erst in Reismehl, dann in verquirltem Ei und zuletzt in Sesam wenden.',setting:'Vorbereitung',book:'Kochbuchpanade; Reismehl ist die glutenfreie Anpassung.'},
+      {title:'Hähnchen anbraten',needs:['3 EL Rapsöl','panierte Hähnchenstücke'],text:'Rapsöl in einer Pfanne erhitzen und Hähnchen rundum anbraten.',setting:'Pfanne',book:'Kochbuch: zunächst in der Pfanne anbraten.'},
+      {title:'Im Ofen fertig garen',needs:['angebratenes Hähnchen'],text:'Hähnchen auf ein Blech oder in eine Form legen und im Ofen fertig garen.',setting:'15 Min. · 180 °C',book:'Kochbuch: etwa 15 Minuten im Ofen.'},
+      {title:'Dressing',needs:['125 g Joghurt 1,5 %','2 EL Zitronensaft','1 EL Honig','2 TL frisch geriebener Ingwer','Salz und Pfeffer'],text:'Dressing verrühren. Im TM6 kurz mischen oder von Hand verrühren.',setting:'10 Sek. · Stufe 3',book:'TM6-Übertragung des Verrührens.'},
+      {title:'Salat vorbereiten',needs:['2 Gurken','4 Fleischtomaten','1 rote Zwiebel','½ Bund Koriander','1 großer Salat'],text:'Gemüse und Salat waschen und schneiden. Koriander hacken und alles locker mischen.',setting:'Ohne TM6',book:'Entspricht dem Kochbuch.'},
+      {title:'Anrichten',needs:['Salat','Dressing','Sesam-Hähnchen'],text:'Salat mit Dressing anrichten und das Hähnchen darauf verteilen. Für die Lunchbox Dressing möglichst separat mitnehmen.',setting:'Fertig',book:'Kochbuchgericht vollständig.'}
+    ]
+  },
+  lachs: {
+    title:'Lachs mit scharfem Kohlrabi-Karotten-Gemüse',
+    adaptation:'',
+    defaultYield:4,
+    steps:[
+      {title:'Kartoffeln vorbereiten',needs:['500 g Kartoffeln','400 ml glutenfreie Gemüsebrühe'],text:'Kartoffeln vorbereiten und in der Brühe garen.',setting:'Topf',book:'Kochbuchbestandteile unverändert; Garzeit nach Kartoffelgröße.'},
+      {title:'Gemüse vorbereiten',needs:['300 g Kohlrabi','200 g Karotten'],text:'Kohlrabi und Karotten schälen und in gleichmäßige Stücke schneiden.',setting:'Vorbereitung',book:'Entspricht dem Kochbuch.'},
+      {title:'Gemüse garen',needs:['300 ml glutenfreie Gemüsebrühe','1 TL Currypulver','1 Prise Cayennepfeffer','Kohlrabi und Karotten'],text:'Gemüse mit Brühe, Curry und Cayenne bissfest garen.',setting:'Topf / TM6',book:'Kochbuch: scharf gewürztes Kohlrabi-Karotten-Gemüse.'},
+      {title:'Gemüse vollenden',needs:['3 EL Kochsahne 15 %','1 EL Petersilie','20 Schnittlauchhalme'],text:'Kochsahne und Kräuter unter das Gemüse geben und abschmecken.',setting:'Kurz erwärmen',book:'Entspricht dem Abschluss des Gemüseanteils.'},
+      {title:'Lachs braten',needs:['600 g Lachs','1 EL Rapsöl','Salz','Pfeffer','Dill'],text:'Lachs würzen und in Rapsöl von beiden Seiten braten, bis er gerade gar ist.',setting:'Pfanne',book:'Kochbuch: Lachs separat braten.'},
+      {title:'Servieren',needs:['Kartoffeln','scharfes Gemüse','Lachs'],text:'Kartoffeln, Gemüse und Lachs auf vier Portionen verteilen.',setting:'Fertig',book:'1 Kochbuch-Rezeptmenge = 4 Portionen.'}
+    ]
+  },
+  tofu: {
+    title:'Sesam-Tofu auf buntem Salat',
+    adaptation:'Glutenfrei: Reismehl sowie glutenfreie Soja- und Teriyaki-Soße.',
+    defaultYield:4,
+    steps:[
+      {title:'Tofu marinieren',needs:['400 g Tofu','4 EL glutenfreie Sojasoße','1 EL glutenfreie Teriyaki-Soße','1 TL Currypulver'],text:'Tofu in Stücke schneiden und mit Sojasoße, Teriyaki-Soße und Curry marinieren.',setting:'Vorbereitung',book:'Entspricht dem Kochbuch; glutenfreie Saucen verwenden.'},
+      {title:'Panieren',needs:['2 EL Reismehl','1 Ei','60 g Sesamsamen','marinierter Tofu'],text:'Tofu zuerst in Reismehl, dann in Ei und zuletzt in Sesam wenden.',setting:'Vorbereitung',book:'Kochbuchpanade glutenfrei mit Reismehl.'},
+      {title:'Tofu braten',needs:['2 EL Rapsöl zum Braten','panierter Tofu'],text:'Tofu in Rapsöl rundum goldbraun braten.',setting:'Pfanne',book:'Kochbuch: Tofu knusprig braten.'},
+      {title:'Salat vorbereiten',needs:['1 Gurke','2 Orangen','200 g Mischsalat','2 Chicorée','1 Beet Kresse'],text:'Gurke, Orangen, Salat und Chicorée vorbereiten und auf vier Portionen verteilen. Kresse dazugeben.',setting:'Ohne TM6',book:'Entspricht dem Kochbuch.'},
+      {title:'Dressing',needs:['2 cm Ingwer','3 EL Orangensaft','3 EL Apfelessig','1 TL Honig','2 EL Rapsöl für das Dressing','Salz und Pfeffer'],text:'Ingwer fein zerkleinern, übrige Dressingzutaten zugeben und vermischen.',setting:'5 Sek. · Stufe 7, dann 10 Sek. · Stufe 4',book:'TM6-Übertragung des Dressings; Zutatenmengen nach Kochbuch.'},
+      {title:'Anrichten',needs:['Salat','Dressing','Sesam-Tofu'],text:'Dressing über den Salat geben und Sesam-Tofu darauf verteilen. Für die Lunchbox Dressing separat transportieren.',setting:'Fertig',book:'1 Kochbuch-Rezeptmenge = 4 Portionen.'}
+    ]
   }
 };
 
 
 function plannedPortionsFor(key){
-  const map={quark:2,blumenkohl:5,tomate:null,geniesser:2,feta:4};
+  const map={quark:2,blumenkohl:5,tomate:null,geniesser:2,feta:4,aubergine:4,haehnchen:4,lachs:4,tofu:4};
   return map[key]??tm6Cook[key]?.defaultYield??null;
 }
 
