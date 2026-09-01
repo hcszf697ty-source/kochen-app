@@ -805,6 +805,7 @@ function confirmCookStart(key){
   const n=Number(document.getElementById('cookServingsInput')?.value||c.defaultYield||1);
   if(!Number.isFinite(n)||n<=0){alert('Bitte eine gültige Portionszahl eingeben.');return;}
   cookServings=n; cookMultiplier=c.defaultYield? n/Number(c.defaultYield):1;
+  resetCookTimer();
   document.getElementById('portionStart')?.remove(); cookMode=key; cookStep=0; renderCookMode();
 }
 
@@ -871,7 +872,7 @@ async function finishCook(){
   } else {
     alert('Gekocht ✓ Zutaten wurden mengenmäßig aus dem Vorrat abgebucht.');
   }
-  const finishedKey=cookMode; cookMode=null;cookToken=null;cookServings=null;cookMultiplier=1;recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
+  const finishedKey=cookMode; cookMode=null;cookToken=null;cookServings=null;cookMultiplier=1;resetCookTimer();releaseCookWakeLock();recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
 }
 
 
@@ -927,6 +928,152 @@ function scaleInstructionText(line,factor){
 }
 
 
+
+let cookTimerSeconds = 0;
+let cookTimerEndAt = null;
+let cookTimerRunning = false;
+let cookTimerInterval = null;
+let cookWakeLock = null;
+
+function formatCookTimer(seconds){
+  const s=Math.max(0,Math.ceil(Number(seconds)||0));
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return h>0
+    ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+    : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function currentCookTimerSeconds(){
+  if(!cookTimerRunning || !cookTimerEndAt) return Math.max(0,cookTimerSeconds);
+  return Math.max(0,Math.ceil((cookTimerEndAt-Date.now())/1000));
+}
+function renderCookTimerOnly(){
+  const el=document.getElementById('cookTimerDisplay');
+  if(el) el.textContent=formatCookTimer(currentCookTimerSeconds());
+  const btn=document.getElementById('cookTimerStartPause');
+  if(btn) btn.textContent=cookTimerRunning?'Pause':'Start';
+}
+async function requestCookWakeLock(){
+  try{
+    if('wakeLock' in navigator && !cookWakeLock){
+      cookWakeLock=await navigator.wakeLock.request('screen');
+      cookWakeLock.addEventListener('release',()=>{cookWakeLock=null;});
+    }
+  }catch(e){}
+}
+async function releaseCookWakeLock(){
+  try{ if(cookWakeLock) await cookWakeLock.release(); }catch(e){}
+  cookWakeLock=null;
+}
+function ensureCookTimerInterval(){
+  if(cookTimerInterval) return;
+  cookTimerInterval=setInterval(()=>{
+    if(cookTimerRunning){
+      const left=currentCookTimerSeconds();
+      if(left<=0){
+        cookTimerRunning=false;
+        cookTimerEndAt=null;
+        cookTimerSeconds=0;
+        renderCookTimerOnly();
+        cookTimerAlarm();
+      }else{
+        renderCookTimerOnly();
+      }
+    }
+  },250);
+}
+function cookTimerAlarm(){
+  try{
+    navigator.vibrate?.([250,120,250,120,500]);
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(Ctx){
+      const ctx=new Ctx();
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=880; g.gain.value=.08; o.start();
+      setTimeout(()=>{try{o.stop();ctx.close();}catch(e){}},900);
+    }
+  }catch(e){}
+  alert('Timer ist fertig ✓');
+}
+function setCookTimerSeconds(seconds){
+  cookTimerRunning=false;
+  cookTimerEndAt=null;
+  cookTimerSeconds=Math.max(0,Math.round(Number(seconds)||0));
+  renderCookTimerOnly();
+}
+function adjustCookTimer(seconds){
+  const left=currentCookTimerSeconds();
+  const next=Math.max(0,left+seconds);
+  cookTimerSeconds=next;
+  if(cookTimerRunning) cookTimerEndAt=Date.now()+next*1000;
+  renderCookTimerOnly();
+}
+function toggleCookTimer(){
+  const left=currentCookTimerSeconds();
+  if(cookTimerRunning){
+    cookTimerSeconds=left;
+    cookTimerRunning=false;
+    cookTimerEndAt=null;
+  }else if(left>0){
+    cookTimerSeconds=left;
+    cookTimerEndAt=Date.now()+left*1000;
+    cookTimerRunning=true;
+    requestCookWakeLock();
+    ensureCookTimerInterval();
+  }
+  renderCookTimerOnly();
+}
+function resetCookTimer(){
+  cookTimerRunning=false;
+  cookTimerEndAt=null;
+  cookTimerSeconds=0;
+  renderCookTimerOnly();
+}
+function secondsFromStepSetting(setting){
+  if(!setting) return null;
+  let total=0, found=false;
+  const h=setting.match(/(\d+(?:[.,]\d+)?)\s*Std/i);
+  const m=setting.match(/(\d+(?:[.,]\d+)?)\s*Min/i);
+  const s=setting.match(/(\d+(?:[.,]\d+)?)\s*Sek/i);
+  if(h){total+=Number(h[1].replace(',','.'))*3600;found=true;}
+  if(m){total+=Number(m[1].replace(',','.'))*60;found=true;}
+  if(s){total+=Number(s[1].replace(',','.'));found=true;}
+  return found?Math.round(total):null;
+}
+function useStepTime(){
+  if(!cookMode) return;
+  const s=tm6Cook[cookMode]?.steps?.[cookStep];
+  const secs=secondsFromStepSetting(s?.setting);
+  if(secs) setCookTimerSeconds(secs);
+}
+function cookTimerPanel(step){
+  const secs=secondsFromStepSetting(step?.setting);
+  return `<section id="cookTimerPanel" style="position:sticky;top:8px;z-index:50;margin:12px 0 16px;padding:14px 16px;border-radius:22px;background:#183425;color:white;box-shadow:0 8px 24px rgba(20,40,28,.16)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div style="font-size:11px;letter-spacing:.12em;opacity:.78;font-weight:800">KOCHTIMER</div>
+        <div id="cookTimerDisplay" style="font-size:34px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums">${formatCookTimer(currentCookTimerSeconds())}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button id="cookTimerStartPause" onclick="toggleCookTimer()" style="border:0;border-radius:14px;padding:11px 15px;background:#fffdf8;color:#183425;font-weight:900">${cookTimerRunning?'Pause':'Start'}</button>
+        <button onclick="resetCookTimer()" style="border:1px solid rgba(255,255,255,.35);border-radius:14px;padding:11px 13px;background:transparent;color:white;font-weight:800">Reset</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button onclick="adjustCookTimer(-60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">−1 Min</button>
+      <button onclick="adjustCookTimer(60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">+1 Min</button>
+      ${secs?`<button onclick="useStepTime()" style="border:0;border-radius:12px;padding:8px 11px;background:#dfe8d8;color:#183425;font-weight:850">Schrittzeit ${formatCookTimer(secs)} übernehmen</button>`:''}
+    </div>
+    <div style="font-size:12px;opacity:.78;margin-top:8px">Bleibt beim Wechsel der Kochschritte aktiv. Auf unterstützten Geräten wird der Bildschirm beim laufenden Timer wach gehalten.</div>
+  </section>`;
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    if(cookTimerRunning) requestCookWakeLock();
+    renderCookTimerOnly();
+  }
+});
+
 function activeSubstitutionsForRecipe(title){
   return (mealSubstitutions||[]).filter(x=>x.recipe_title===title && x.status==='planned');
 }
@@ -943,6 +1090,8 @@ function cookNeedLine(line,title){
 }
 
 function renderCookMode(){
+  ensureCookTimerInterval();
+  if(cookTimerRunning) requestCookWakeLock();
   const c=tm6Cook[cookMode], s=c.steps[cookStep];
   const pct=Math.round(((cookStep+1)/c.steps.length)*100);
   document.getElementById('app').innerHTML=`<main class="shell">
@@ -954,6 +1103,8 @@ function renderCookMode(){
     <div style="height:8px;background:#e5e6df;border-radius:999px;overflow:hidden;margin:6px 0 18px">
       <div style="height:100%;width:${pct}%;background:#294936;border-radius:999px"></div>
     </div>
+
+    ${cookTimerPanel(s)}
 
     ${c.adaptation?`<section class="notice" style="background:#fff4d9;border-color:#ead39a">
       <div><b>Anpassung</b><br>${c.adaptation}</div>
