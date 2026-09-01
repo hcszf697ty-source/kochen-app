@@ -647,7 +647,7 @@ function startCook(key){
   const overlay=document.createElement('div');
   overlay.id='portionStart';
   overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
-  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">VOR DEM KOCHEN</div><h2>${esc(c.title)}</h2></div><button class="icon" onclick="document.getElementById('portionStart')?.remove()">×</button></div><section class="notice" style="background:#edf3e9;border-color:#d7e2d0">${original?`<b>Kochbuchrezept:</b> ${original} Portionen<br>`:'<b>Kochbuch:</b> keine Portionszahl angegeben<br>'}${planned?`<b>Für den Plan benötigt:</b> ${planned} Portionen<br>`:''}<span class="muted">Du entscheidest, wie viel du tatsächlich kochst.${timeMetaFor(c.title)?` · ${timeMetaFor(c.title)}`:''}</span></section><label>Ich koche<input id="cookServingsInput" type="number" min="0.5" step="0.5" value="${initial}"></label>${original?`<div class="meta">Die Vorratsabbuchung wird auf Basis von ${original} Buchportionen skaliert.</div>`:''}<button class="primary" onclick="confirmCookStart('${key}')">Kochmodus starten</button></section>`;
+  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">VOR DEM KOCHEN</div><h2>${esc(c.title)}</h2></div><button class="icon" onclick="document.getElementById('portionStart')?.remove()">×</button></div><section class="notice" style="background:#edf3e9;border-color:#d7e2d0">${original?`<b>Kochbuchrezept:</b> ${original} Portionen<br>`:'<b>Kochbuch:</b> keine Portionszahl angegeben<br>'}${planned?`<b>Für den Plan benötigt:</b> ${planned} Portionen<br>`:''}<span class="muted">Du entscheidest, wie viel du tatsächlich kochst.${timeMetaFor(c.title)?` · ${timeMetaFor(c.title)}`:''}</span></section>${substitutionNotice(c.title)}<label>Ich koche<input id="cookServingsInput" type="number" min="0.5" step="0.5" value="${initial}"></label>${original?`<div class="meta">Die Vorratsabbuchung wird auf Basis von ${original} Buchportionen skaliert.</div>`:''}<button class="primary" onclick="confirmCookStart('${key}')">Kochmodus starten</button></section>`;
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
   document.body.appendChild(overlay);
 }
@@ -669,6 +669,8 @@ async function finishCook(){
     const {data:p}=await sb.from('foods').select('id').eq('name','Pastinake').maybeSingle();
     if(p?.id) excluded=[p.id];
   }
+  const activeSubs=activeSubstitutionsForRecipe(title);
+  if(activeSubs.length) excluded.push(...activeSubs.map(x=>x.required_food_id));
   let y=prompt('Wie viele Teller/Portionen hat die Kochrunde tatsächlich ergeben?',cookServings??tm6Cook[cookMode].defaultYield??'');
   if(y===null)return;
   let p=prompt('Wie viele Portionen bleiben nach dem geplanten Essen übrig? Diese werden als fertige Mahlzeit gespeichert.','');
@@ -680,6 +682,32 @@ async function finishCook(){
     p_excluded_food_ids:excluded
   });
   if(error){alert('Vorrat konnte nicht abgebucht werden: '+error.message);return;}
+  if(!data?.duplicate && activeSubs.length){
+    for(const sub of activeSubs){
+      // Current recipe keeps the non-substituted part of the original ingredient:
+      // 3 red peppers in book; 1 is replaced => consume 2 red + 1 green at recipe scale.
+      if(title==='Gebackener Feta auf Paprika-Tomaten'){
+        const originalUse=2*cookMultiplier, substituteUse=Number(sub.substitute_quantity||1)*cookMultiplier;
+        const pools=[
+          {food_id:sub.required_food_id,qty:originalUse},
+          {food_id:sub.substitute_food_id,qty:substituteUse}
+        ];
+        for(const pool of pools){
+          let remaining=pool.qty;
+          const {data:inv}=await sb.from('inventory_items').select('id,quantity,quantity_status').eq('household_id',householdId).eq('food_id',pool.food_id).order('created_at',{ascending:true});
+          for(const row of (inv||[])){
+            if(remaining<=0)break;
+            const have=Number(row.quantity||0), take=Math.min(have,remaining);
+            if(take>0){
+              await sb.from('inventory_items').update({quantity:Math.max(0,have-take)}).eq('id',row.id);
+              remaining-=take;
+            }
+          }
+        }
+        await sb.from('meal_ingredient_substitutions').update({status:'used',updated_at:new Date().toISOString()}).eq('id',sub.id);
+      }
+    }
+  }
   if(data?.duplicate){
     alert('Diese Kochrunde wurde bereits verbucht ✓\n\nEs wurde nichts ein zweites Mal vom Vorrat abgezogen.');
     return;
@@ -749,6 +777,22 @@ function scaleInstructionText(line,factor){
   return out;
 }
 
+
+function activeSubstitutionsForRecipe(title){
+  return (mealSubstitutions||[]).filter(x=>x.recipe_title===title && x.status==='planned');
+}
+function substitutionNotice(title){
+  const subs=activeSubstitutionsForRecipe(title);
+  if(!subs.length)return '';
+  return `<section class="notice" style="background:#fff4d9;border-color:#ead39a"><div><b>Heute angepasst</b><br>${subs.map(x=>`Kochbuch: ${x.required_quantity} ${esc(x.unit)} ${esc(x.required_food?.name||'Originalzutat')} ersetzen → heute ${x.substitute_quantity} ${esc(x.unit)} ${esc(x.substitute_food?.name||'Alternative')}`).join('<br>')}<br><span class="muted">Das Originalrezept bleibt unverändert gespeichert.</span></div></section>`;
+}
+function cookNeedLine(line,title){
+  if(title==='Gebackener Feta auf Paprika-Tomaten' && /^3 rote Paprika/i.test(line) && activeSubstitutionsForRecipe(title).length){
+    return `2 rote Paprika + 1 grüne Spitzpaprika, in Stücken`;
+  }
+  return scaleNeedLine(line,cookMultiplier);
+}
+
 function renderCookMode(){
   const c=tm6Cook[cookMode], s=c.steps[cookStep];
   const pct=Math.round(((cookStep+1)/c.steps.length)*100);
@@ -765,6 +809,7 @@ function renderCookMode(){
     ${c.adaptation?`<section class="notice" style="background:#fff4d9;border-color:#ead39a">
       <div><b>Anpassung</b><br>${c.adaptation}</div>
     </section>`:''}
+    ${substitutionNotice(c.title)}
 
     <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Du kochst ${cookServings??c.defaultYield??'eine Rezeptmenge'} Portionen</b><br><span class="muted">${c.defaultYield?`Originalmenge: ${c.defaultYield} Portionen · Faktor ${cookMultiplier.toLocaleString('de-DE',{maximumFractionDigits:2})} · alle Zutatenmengen unten sind bereits angepasst`:'Zündersuppe ohne feste Buch-Portionszahl.'}</span></div></section>
 
@@ -772,7 +817,7 @@ function renderCookMode(){
       <div class="body" style="width:100%">
         <div class="eyebrow">SCHRITT ${cookStep+1}</div>
         <h2 style="font-size:32px;margin:8px 0 18px">${s.title}</h2>
-        ${s.needs&&s.needs.length?`<div style="margin:0 0 18px;padding:16px;border-radius:18px;background:#fff8e8"><b>Jetzt brauchst du</b><div style="margin-top:8px;line-height:1.6">${s.needs.map(x=>`• ${scaleNeedLine(x,cookMultiplier)}`).join('<br>')}</div></div>`:''}
+        ${s.needs&&s.needs.length?`<div style="margin:0 0 18px;padding:16px;border-radius:18px;background:#fff8e8"><b>Jetzt brauchst du</b><div style="margin-top:8px;line-height:1.6">${s.needs.map(x=>`• ${cookNeedLine(x,c.title)}`).join('<br>')}</div></div>`:''}
         <p class="desc" style="font-size:22px;line-height:1.45">${scaleInstructionText(s.text,cookMultiplier)}</p>
         <div style="margin-top:26px;padding:20px;border-radius:20px;background:#edf3e9;text-align:center;font-size:24px;font-weight:800">${s.setting}</div>
       </div>
@@ -1291,7 +1336,7 @@ async function loadRows(doRefresh=true){
 
   const [{data:prefData},{data:subData},{data:invData}]=await Promise.all([
     sb.from('ingredient_substitution_preferences').select('id,required_food_id,substitute_food_id,ratio,requires_confirmation,note,substitute_food:foods!ingredient_substitution_preferences_substitute_food_id_fkey(name)').eq('household_id',householdId),
-    sb.from('meal_ingredient_substitutions').select('id,meal_date,recipe_title,required_food_id,substitute_food_id,required_quantity,substitute_quantity,unit,status,note').eq('household_id',householdId),
+    sb.from('meal_ingredient_substitutions').select('id,meal_date,recipe_title,required_food_id,substitute_food_id,required_quantity,substitute_quantity,unit,status,note,required_food:foods!meal_ingredient_substitutions_required_food_id_fkey(name),substitute_food:foods!meal_ingredient_substitutions_substitute_food_id_fkey(name)').eq('household_id',householdId),
     sb.from('inventory_items').select('id,food_id,quantity,unit,quantity_status,foods(name)').eq('household_id',householdId)
   ]);
   substitutionPrefs=prefData||[];
