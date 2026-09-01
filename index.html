@@ -98,7 +98,7 @@ function recipeLink(title,key){
 
 const nutritionTargets={
   user:{label:'Du',kcalMin:1700,kcalMax:1800,proteinMin:90},
-  husband:{label:'Dein Mann',kcalMin:2200,kcalMax:2300,proteinMin:109}
+  husband:{label:'Marcel',kcalMin:2200,kcalMax:2300,proteinMin:109}
 };
 const recipeMetrics={
   'Quark mit Beeren':{active:5,total:5},
@@ -120,10 +120,75 @@ function dayTimeSummary(day){
   return known?{active,total,known}:null;
 }
 function targetCard(){
-  return `<section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Tagesziele Erwachsene</b><br><span class="muted">Du: ${nutritionTargets.user.kcalMin}–${nutritionTargets.user.kcalMax} kcal · mind. ${nutritionTargets.user.proteinMin} g Protein<br>Dein Mann: ${nutritionTargets.husband.kcalMin}–${nutritionTargets.husband.kcalMax} kcal · mind. ${nutritionTargets.husband.proteinMin} g Protein</span></div></section>`;
+  return `<section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Tagesziele Erwachsene</b><br><span class="muted">Du: ${nutritionTargets.user.kcalMin}–${nutritionTargets.user.kcalMax} kcal · mind. ${nutritionTargets.user.proteinMin} g Protein<br>Marcel: ${nutritionTargets.husband.kcalMin}–${nutritionTargets.husband.kcalMax} kcal · mind. ${nutritionTargets.husband.proteinMin} g Protein</span></div></section>`;
 }
-function nutritionCheckCard(){
-  return `<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Ernährungscheck: noch nicht vollständig berechenbar</b><br><span class="muted">Die Zielwerte sind fest hinterlegt. Ein Tag gilt erst als geprüft, wenn für alle verwendeten Kochbuchrezepte verlässliche kcal-/Proteinwerte und die gegessenen Portionen je Erwachsenem vorliegen.</span></div></section>`;
+
+
+
+// Nährwerte pro Kochbuchportion. Quelle: Kochbuchfotos; Quark = ca.-Angabe der Nutzerin.
+// Zündersuppen bleiben absichtlich offen, weil das Kochbuch keine Nährwerte angibt.
+const recipeNutrition={
+  'Quark mit Beeren':{kcal:300,protein:26,carbs:null,source:'ca.'},
+  'Genießer-Salat':{kcal:480,protein:38,carbs:17,source:'Kochbuch'},
+  'Sesam-Tofu auf buntem Salat':{kcal:427,protein:24,carbs:27,source:'Kochbuch'},
+  'Lachs mit scharfem Kohlrabi-Karotten-Gemüse':{kcal:434,protein:35,carbs:21,source:'Kochbuch'},
+  'Hähnchen-Sesam-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
+  'Auberginen-Hack-Auflauf':{kcal:486,protein:48,carbs:20,source:'Kochbuch'},
+  'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'}
+};
+
+const defaultAdultPortions={user:1,husband:1};
+function nutritionForDay(day){
+  const result={
+    user:{kcal:0,protein:0,carbs:0,carbsKnown:true},
+    husband:{kcal:0,protein:0,carbs:0,carbsKnown:true},
+    missing:[]
+  };
+  (day.meals||[]).forEach(m=>{
+    const title=plainRecipeTitle(m[1]);
+    const n=recipeNutrition[title];
+    if(!n){result.missing.push(title);return;}
+    for(const person of ['user','husband']){
+      const factor=defaultAdultPortions[person];
+      result[person].kcal+=n.kcal*factor;
+      result[person].protein+=n.protein*factor;
+      if(n.carbs==null)result[person].carbsKnown=false;
+      else result[person].carbs+=n.carbs*factor;
+    }
+  });
+  result.missing=[...new Set(result.missing)];
+  return result;
+}
+function nutritionStatus(personKey,x){
+  const t=nutritionTargets[personKey];
+  const kcalOk=x.kcal>=t.kcalMin && x.kcal<=t.kcalMax;
+  const proteinOk=x.protein>=t.proteinMin;
+  return {kcalOk,proteinOk,ok:kcalOk&&proteinOk};
+}
+function nutritionCheckCard(day){
+  const n=nutritionForDay(day);
+  const u=nutritionStatus('user',n.user), m=nutritionStatus('husband',n.husband);
+  const incomplete=n.missing.length>0;
+  const line=(key,x,s)=>{
+    const t=nutritionTargets[key], label=t.label;
+    const kcalTxt=`${Math.round(x.kcal)} / ${t.kcalMin}–${t.kcalMax} kcal`;
+    const protTxt=`${Math.round(x.protein)} / ≥${t.proteinMin} g Protein`;
+    const carbTxt=key==='husband'?(x.carbsKnown?` · ${Math.round(x.carbs)} g KH`:' · KH teilweise offen'):'';
+    return `<div style="margin-top:8px"><b>${label}</b><br><span class="muted">${kcalTxt} ${s.kcalOk?'✓':'⚠'} · ${protTxt} ${s.proteinOk?'✓':'⚠'}${carbTxt}</span></div>`;
+  };
+  return `<section class="notice" style="margin-top:14px;background:${incomplete?'#fff8e8':(u.ok&&m.ok?'#edf3e9':'#fff8e8')};border-color:${incomplete?'#ead39a':'#d7e2d0'}">
+    <div><b>Ernährungscheck ${incomplete?'· teilweise offen':(u.ok&&m.ok?'✓':'· Anpassung nötig')}</b>
+      ${line('user',n.user,u)}
+      ${line('husband',n.husband,m)}
+      ${incomplete?`<div class="meta" style="margin-top:8px">Noch ohne verlässliche Nährwerte: ${n.missing.join(', ')}. Diese Mahlzeiten sind in den Summen noch nicht enthalten.</div>`:''}
+      <div class="meta" style="margin-top:8px">Rechnung derzeit mit 1 Kochbuchportion je Erwachsenem und Mahlzeit. Gekochte Familienportionen und gegessene Erwachsenenportionen bleiben getrennt.</div>
+    </div>
+  </section>`;
+}
+function nutritionBadge(title){
+  const n=recipeNutrition[title];
+  if(!n)return '';
+  return `${n.source==='ca.'?'ca. ':''}${n.kcal} kcal · ${n.protein} g Protein${n.carbs!=null?` · ${n.carbs} g KH`:''}`;
 }
 
 const weekPlan = {
@@ -206,13 +271,13 @@ function renderToday(){
       <div><b>${d.label}</b><br><span class="muted">${d.phase}phase</span></div>
     </section>
     ${targetCard()}
-    ${nutritionCheckCard()}
+    ${nutritionCheckCard(d)}
     ${(()=>{const t=dayTimeSummary(d);return t?`<section class="notice" style="margin-top:14px"><div><b>Kochaufwand heute</b><br><span class="muted">${t.active} Min aktiv · ${t.total} Min gesamt</span></div></section>`:''})()}
 
     <section class="list">
       ${d.meals.map(m=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<article class="item"><div class="body">
         <div class="top"><h2>${m[0]} · ${m[1]}</h2><span class="pill">${d.phase}</span></div>
-        <div class="meta">${m[2]}${tm?` · ${tm}`:''}</div>
+        <div class="meta">${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</div>
       </div></article>`}).join('')}
     </section>
 
@@ -248,12 +313,12 @@ function renderPlan(){
     </section>
 
     ${targetCard()}
-    ${nutritionCheckCard()}
+    ${nutritionCheckCard(d)}
     ${(()=>{const t=dayTimeSummary(d);return t?`<section class="notice" style="margin-top:14px"><div><b>Zubereitungszeit ${d.label}</b><br><span class="muted">${t.active} Min aktiv · ${t.total} Min gesamt</span></div></section>`:''})()}
 
     <section class="list"><article class="item"><div class="body">
       <div class="top"><h2>${d.label}</h2><span class="pill">${d.phase}</span></div>
-      ${d.meals.map(m=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<p class="desc"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}</span></p>`}).join('')}
+      ${d.meals.map(m=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<p class="desc"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</span></p>`}).join('')}
       ${(d.preps||[]).map(x=>`<div style="height:10px"></div>${prepCard(x[0],x[1]||'',`${x[2]}${timeMetaFor(x[0])?` · ${timeMetaFor(x[0])}`:''}`)}`).join('')}
       ${d.note?`<div class="meta" style="margin-top:10px">${d.note}</div>`:''}
     </div></article></section>
@@ -613,7 +678,7 @@ function renderRecipeDetail(key){
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
     <div><b>${r.meta}</b><br><span class="muted">${timeMetaFor(r.title)?`${timeMetaFor(r.title)} · `:''}Quelle: Schlank mit Genuss – Das Bauchweg Kochbuch</span></div>
   </section>
-  <section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Nährwertprüfung</b><br><span class="muted">kcal und Protein werden erst dann für den Tagescheck verwendet, wenn sie für dieses Rezept verlässlich hinterlegt sind. Keine erfundenen Werte.</span></div></section>
+  <section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Nährwerte</b><br><span class="muted">${nutritionBadge(r.title)?`${nutritionBadge(r.title)} pro Kochbuchportion`:'Das Kochbuch enthält für dieses Rezept keine Nährwertangabe. Es wird noch nicht in die Tages-Summe eingerechnet.'}</span></div></section>
 
   <section class="item" style="margin-top:14px">
     <div class="body">
