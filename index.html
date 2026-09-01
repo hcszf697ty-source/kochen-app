@@ -91,6 +91,37 @@ function recipeLink(title,key){
   return `<span style="font-weight:700">${title}</span>`;
 }
 
+
+const nutritionTargets={
+  user:{label:'Du',kcalMin:1700,kcalMax:1800,proteinMin:90},
+  husband:{label:'Dein Mann',kcalMin:2200,kcalMax:2300,proteinMin:109}
+};
+const recipeMetrics={
+  'Quark mit Beeren':{active:5,total:5},
+  'Blumenkohlsuppe':{active:15,total:30},
+  'Tomatensuppe':{active:12,total:35},
+  'Genießer-Salat':{active:25,total:35},
+  'Gebackener Feta auf Paprika-Tomaten':{active:15,total:40},
+  'Hähnchen-Sesam-Salat':{active:25,total:45},
+  'Auberginen-Hack-Auflauf':{active:25,total:55},
+  'Rohkost-Salat mit Ei':{active:20,total:30},
+  'Lachs mit scharfem Kohlrabi-Karotten-Gemüse':{active:25,total:40},
+  'Sesam-Tofu auf buntem Salat':{active:25,total:35}
+};
+function plainRecipeTitle(html){const d=document.createElement('div');d.innerHTML=html||'';return (d.textContent||'').trim();}
+function timeMetaFor(title){const t=recipeMetrics[title];return t?`${t.active} Min aktiv · ${t.total} Min gesamt`:'';}
+function dayTimeSummary(day){
+  let active=0,total=0,known=0;
+  (day.meals||[]).forEach(m=>{const t=recipeMetrics[plainRecipeTitle(m[1])];if(t){active+=t.active;total+=t.total;known++;}});
+  return known?{active,total,known}:null;
+}
+function targetCard(){
+  return `<section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Tagesziele Erwachsene</b><br><span class="muted">Du: ${nutritionTargets.user.kcalMin}–${nutritionTargets.user.kcalMax} kcal · mind. ${nutritionTargets.user.proteinMin} g Protein<br>Dein Mann: ${nutritionTargets.husband.kcalMin}–${nutritionTargets.husband.kcalMax} kcal · mind. ${nutritionTargets.husband.proteinMin} g Protein</span></div></section>`;
+}
+function nutritionCheckCard(){
+  return `<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Ernährungscheck: noch nicht vollständig berechenbar</b><br><span class="muted">Die Zielwerte sind fest hinterlegt. Ein Tag gilt erst als geprüft, wenn für alle verwendeten Kochbuchrezepte verlässliche kcal-/Proteinwerte und die gegessenen Portionen je Erwachsenem vorliegen.</span></div></section>`;
+}
+
 const weekPlan = {
   '2026-08-30':{
     label:'So · 30.08.', phase:'Zünder',
@@ -170,12 +201,15 @@ function renderToday(){
     <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
       <div><b>${d.label}</b><br><span class="muted">${d.phase}phase</span></div>
     </section>
+    ${targetCard()}
+    ${nutritionCheckCard()}
+    ${(()=>{const t=dayTimeSummary(d);return t?`<section class="notice" style="margin-top:14px"><div><b>Kochaufwand heute</b><br><span class="muted">${t.active} Min aktiv · ${t.total} Min gesamt</span></div></section>`:''})()}
 
     <section class="list">
-      ${d.meals.map(m=>`<article class="item"><div class="body">
+      ${d.meals.map(m=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<article class="item"><div class="body">
         <div class="top"><h2>${m[0]} · ${m[1]}</h2><span class="pill">${d.phase}</span></div>
-        <div class="meta">${m[2]}</div>
-      </div></article>`).join('')}
+        <div class="meta">${m[2]}${tm?` · ${tm}`:''}</div>
+      </div></article>`}).join('')}
     </section>
 
     ${d.note?`<section class="notice" style="margin-top:14px"><div><b>Heute wichtig</b><br>${d.note}</div></section>`:''}
@@ -209,15 +243,19 @@ function renderPlan(){
         </button>`).join('')}
     </section>
 
+    ${targetCard()}
+    ${nutritionCheckCard()}
+    ${(()=>{const t=dayTimeSummary(d);return t?`<section class="notice" style="margin-top:14px"><div><b>Zubereitungszeit ${d.label}</b><br><span class="muted">${t.active} Min aktiv · ${t.total} Min gesamt</span></div></section>`:''})()}
+
     <section class="list"><article class="item"><div class="body">
       <div class="top"><h2>${d.label}</h2><span class="pill">${d.phase}</span></div>
-      ${d.meals.map(m=>`<p class="desc"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}</span></p>`).join('')}
-      ${(d.preps||[]).map(x=>`<div style="height:10px"></div>${prepCard(x[0],x[1]||'',x[2])}`).join('')}
+      ${d.meals.map(m=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<p class="desc"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}</span></p>`}).join('')}
+      ${(d.preps||[]).map(x=>`<div style="height:10px"></div>${prepCard(x[0],x[1]||'',`${x[2]}${timeMetaFor(x[0])?` · ${timeMetaFor(x[0])}`:''}`)}`).join('')}
       ${d.note?`<div class="meta" style="margin-top:10px">${d.note}</div>`:''}
     </div></article></section>
 
     <section class="notice" style="margin-top:14px">
-      <div><b>Vorratslogik</b><br>Vorrat → reservierter Verbrauch → rechtzeitige Biokiste → Einkauf. Eine Zutat soll nicht doppelt verplant werden.</div>
+      <div><b>Planungsregeln</b><br>Kalorien-/Proteinziele prüfen · fertige verderbliche Reste zuerst · bereits gekaufte verderbliche Zutaten schützen · Vorrat → reservierter Verbrauch → rechtzeitige Biokiste → Einkauf.</div>
     </section>
 
     <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><b onclick="activeTab='plan';renderApp()">Plan</b><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav>
@@ -395,7 +433,7 @@ function startCook(key){
   const overlay=document.createElement('div');
   overlay.id='portionStart';
   overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
-  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">VOR DEM KOCHEN</div><h2>${esc(c.title)}</h2></div><button class="icon" onclick="document.getElementById('portionStart')?.remove()">×</button></div><section class="notice" style="background:#edf3e9;border-color:#d7e2d0">${original?`<b>Kochbuchrezept:</b> ${original} Portionen<br>`:'<b>Kochbuch:</b> keine Portionszahl angegeben<br>'}${planned?`<b>Für den Plan benötigt:</b> ${planned} Portionen<br>`:''}<span class="muted">Du entscheidest, wie viel du tatsächlich kochst.</span></section><label>Ich koche<input id="cookServingsInput" type="number" min="0.5" step="0.5" value="${initial}"></label>${original?`<div class="meta">Die Vorratsabbuchung wird auf Basis von ${original} Buchportionen skaliert.</div>`:''}<button class="primary" onclick="confirmCookStart('${key}')">Kochmodus starten</button></section>`;
+  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">VOR DEM KOCHEN</div><h2>${esc(c.title)}</h2></div><button class="icon" onclick="document.getElementById('portionStart')?.remove()">×</button></div><section class="notice" style="background:#edf3e9;border-color:#d7e2d0">${original?`<b>Kochbuchrezept:</b> ${original} Portionen<br>`:'<b>Kochbuch:</b> keine Portionszahl angegeben<br>'}${planned?`<b>Für den Plan benötigt:</b> ${planned} Portionen<br>`:''}<span class="muted">Du entscheidest, wie viel du tatsächlich kochst.${timeMetaFor(c.title)?` · ${timeMetaFor(c.title)}`:''}</span></section><label>Ich koche<input id="cookServingsInput" type="number" min="0.5" step="0.5" value="${initial}"></label>${original?`<div class="meta">Die Vorratsabbuchung wird auf Basis von ${original} Buchportionen skaliert.</div>`:''}<button class="primary" onclick="confirmCookStart('${key}')">Kochmodus starten</button></section>`;
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
   document.body.appendChild(overlay);
 }
@@ -553,6 +591,7 @@ function renderRecipes(){
         <div class="body">
           <div class="top"><h2>${r.title}</h2><span class="pill">${r.phase}</span></div>
           <p class="desc">${r.meta}</p>
+          ${timeMetaFor(r.title)?`<div class="meta"><b>Zeit:</b> ${timeMetaFor(r.title)}</div>`:''}
           ${r.adaptation?`<div class="meta"><b>Anpassung:</b> ${r.adaptation}</div>`:''}
           <div class="meta">Rezept öffnen ›</div>
         </div>
@@ -568,8 +607,9 @@ function renderRecipeDetail(key){
   <header><div><div class="eyebrow">${r.phase}</div><h1 style="font-size:38px">${r.title}</h1></div><div class="actions"><button class="icon" onclick="recipeOpen=null;renderRecipes()">←</button></div></header>
 
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
-    <div><b>${r.meta}</b><br><span class="muted">Quelle: Schlank mit Genuss – Das Bauchweg Kochbuch</span></div>
+    <div><b>${r.meta}</b><br><span class="muted">${timeMetaFor(r.title)?`${timeMetaFor(r.title)} · `:''}Quelle: Schlank mit Genuss – Das Bauchweg Kochbuch</span></div>
   </section>
+  <section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Nährwertprüfung</b><br><span class="muted">kcal und Protein werden erst dann für den Tagescheck verwendet, wenn sie für dieses Rezept verlässlich hinterlegt sind. Keine erfundenen Werte.</span></div></section>
 
   <section class="item" style="margin-top:14px">
     <div class="body">
@@ -591,6 +631,35 @@ function renderRecipeDetail(key){
   <nav class="bottom"><span onclick="recipeOpen=null;activeTab='today';renderApp()">Heute</span><span onclick="recipeOpen=null;activeTab='plan';renderApp()">Plan</span><b onclick="recipeOpen=null;activeTab='recipes';renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="recipeOpen=null;activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
 
+
+
+function openPreparedMealEditor(id){
+  const r=preparedMealRows.find(x=>x.id===id); if(!r)return;
+  const overlay=document.createElement('div');
+  overlay.id='preparedMealEditor';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">FERTIGE MAHLZEIT</div><h2 style="margin:4px 0 0">${esc(r.name||'Mahlzeit')}</h2></div><button class="icon" onclick="document.getElementById('preparedMealEditor')?.remove()">×</button></div>
+    <label style="display:block;margin-top:14px">Noch vorhandene Portionen
+      <input id="preparedPortions" type="number" min="0" step="0.5" value="${Number(r.portions||0)}" style="width:100%">
+    </label>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="secondary" style="flex:1" onclick="savePreparedMeal('${id}',0,'finished')">Verbraucht</button>
+      <button class="secondary" style="flex:1" onclick="savePreparedMeal('${id}',0,'discarded')">Weggeworfen</button>
+      <button class="primary" style="flex:1.4" onclick="savePreparedMeal('${id}')">Speichern</button>
+    </div>
+  </section>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+  document.body.appendChild(overlay);
+}
+async function savePreparedMeal(id,forcedPortions=null,forcedStatus=null){
+  const portions=forcedPortions===null?Number(document.getElementById('preparedPortions')?.value||0):forcedPortions;
+  const status=forcedStatus||(portions>0?'available':'finished');
+  const {error}=await sb.from('prepared_meals').update({portions,status}).eq('id',id).eq('household_id',householdId);
+  if(error){alert('Mahlzeit konnte nicht aktualisiert werden: '+error.message);return;}
+  document.getElementById('preparedMealEditor')?.remove();
+  await loadInventory();
+}
 
 function renderInventory(){
   const groups={};
