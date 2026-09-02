@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#183425">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Kochen">
+  <link rel="manifest" href="/manifest.webmanifest">
 <title>Kochen – Einkauf</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -67,6 +72,49 @@ let cookMode=null;
 let cookStep=0;
 let cookServings=null;
 let cookMultiplier=1;
+
+const COOK_STATE_KEY='kochen_active_cook_v3';
+function saveCookState(){
+  try{
+    if(!cookMode){localStorage.removeItem(COOK_STATE_KEY);return;}
+    localStorage.setItem(COOK_STATE_KEY,JSON.stringify({
+      cookMode,cookStep,cookServings,cookMultiplier,
+      cookTimerSeconds,cookTimerEndAt,cookTimerRunning,cookPushTimerId,
+      savedAt:Date.now()
+    }));
+  }catch(e){}
+}
+function clearCookState(){try{localStorage.removeItem(COOK_STATE_KEY);}catch(e){}}
+function restoreCookState(){
+  try{
+    const raw=localStorage.getItem(COOK_STATE_KEY);
+    if(!raw)return false;
+    const s=JSON.parse(raw);
+    if(!s?.cookMode || !tm6Cook[s.cookMode]){clearCookState();return false;}
+    cookMode=s.cookMode;
+    cookStep=Math.max(0,Math.min(Number(s.cookStep)||0,tm6Cook[cookMode].steps.length-1));
+    cookServings=s.cookServings==null?(tm6Cook[cookMode].defaultYield||1):Number(s.cookServings);
+    cookMultiplier=Number(s.cookMultiplier)||1;
+    cookTimerSeconds=Math.max(0,Number(s.cookTimerSeconds)||0);
+    cookTimerEndAt=s.cookTimerEndAt?Number(s.cookTimerEndAt):null;
+    cookTimerRunning=!!s.cookTimerRunning && !!cookTimerEndAt;
+    cookPushTimerId=s.cookPushTimerId||null;
+    activeTab='recipes'; recipeOpen=null;
+    return true;
+  }catch(e){clearCookState();return false;}
+}
+function setCookStep(next){
+  if(!cookMode)return;
+  cookStep=Math.max(0,Math.min(Number(next)||0,tm6Cook[cookMode].steps.length-1));
+  saveCookState();
+  renderCookMode();
+}
+function closeCookMode(){
+  recipeOpen=cookMode;
+  cookMode=null; cookStep=0; cookServings=null; cookMultiplier=1;
+  clearCookState();
+  renderRecipes();
+}
 
 function openRecipe(key){
   activeTab='recipes';
@@ -332,69 +380,131 @@ function nutritionBadge(title){
 }
 
 const weekPlan = {
-  '2026-08-30':{
-    label:'So · 30.08.', phase:'Zünder',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Heute kochen',recipeLink('Blumenkohlsuppe','blumenkohl'),'1 Originalmenge · ohne Pastinake'],
-      ['Zusätzlich kochen',recipeLink('Tomatensuppe','tomate'),'1 Originalmenge']
-    ],
-    note:'Beide Suppen als Auswahl. Gemessene Ausbeute Blumenkohlsuppe: 5 Teller.',
-    preps:[]
-  },
-  '2026-08-31':{
-    label:'Mo · 31.08.', phase:'Zünder',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Blumenkohlsuppe','blumenkohl'),'vom Sonntag, sofern genug übrig ist'],
-      ['Abend',recipeLink('Blumenkohlsuppe','blumenkohl'),'mit dem Blumenkohl aus der Biokiste']
-    ],
-    note:'Biokiste kommt heute. Vorräte und Lieferung vor Einkauf berücksichtigen.',
-    preps:[['Genießer-Salat','geniesser','Heute vorbereiten · Mittagessen Dienstag']]
-  },
-  '2026-09-01':{
-    label:'Di · 01.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Genießer-Salat','geniesser'),'vorbereitet am Montag'],
-      ['Abend',recipeLink('Gebackener Feta auf Paprika-Tomaten','feta'),'4-Personen-Kochbuchrezept']
-    ],
-    note:'Glutenfreie Zutaten bei Schinken und Brühe prüfen.',
-    preps:[]
-  },
   '2026-09-02':{
     label:'Mi · 02.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
       ['Mittag außer Haus',recipeLink('Genießer-Salat','geniesser'),'2 Restportionen · heute aufbrauchen'],
-      ['Abend',recipeLink('Auberginen-Hack-Auflauf','aubergine'),'Kochbuchrezept']
+      ['Abend',recipeLink('Auberginen-Hack-Auflauf','aubergine'),'Familienabendessen + 2 Lunchportionen für Donnerstag']
     ],
-    note:'Die fertigen Salatreste haben Vorrang. Das bereits gekaufte Hähnchen bleibt eingeplant.',
-    preps:[['Hähnchen-Sesam-Salat','haehnchen','Heute vorbereiten · Mittagessen Donnerstag · Hähnchen bereits gekauft']]
+    note:'Ab heute Meal-Prep-Regel: abends kochen, 2 Erwachsenenportionen für den nächsten Mittag zurückstellen. Frisches Hähnchen ist bereits gekauft.',
+    preps:[]
   },
   '2026-09-03':{
     label:'Do · 03.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'am Mittwoch vorbereitet · Hähnchen bereits gekauft'],
-      ['Abend',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse','lachs'),'600 g Lachs · 500 g Kartoffeln · 300 g Kohlrabi · 200 g Karotten']
+      ['Mittag außer Haus',recipeLink('Auberginen-Hack-Auflauf','aubergine'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'Familienabendessen + 2 Lunchportionen für Freitag · Hähnchen bereits gekauft']
     ],
-    note:'Bereits gekaufte verderbliche Zutaten werden geschützt und zeitnah verplant.',
-    preps:[['Sesam-Tofu auf buntem Salat','tofu','Heute vorbereiten · Mittagessen Freitag']]
+    note:'Das frische Hähnchen hat Vorrang. Beim Kochen zwei Portionen direkt für Freitag zurückstellen.',
+    preps:[]
   },
   '2026-09-04':{
     label:'Fr · 04.09.', phase:'Turbo',
     meals:[
-      ['Mittag außer Haus',recipeLink('Sesam-Tofu auf buntem Salat','tofu'),'Kochbuch S. 53 · glutenfreie Soja-/Teriyakisauce und Reismehl verwenden']
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
+      ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse','lachs'),'TK-Lachs · Familienabendessen + 2 Lunchportionen für Samstag']
     ],
-    note:'Freitag ist derzeit bis zum Mittag geplant.',
+    note:'Der Lachs kommt aus dem Tiefkühler und bleibt bei Planänderungen flexibel.',
+    preps:[]
+  },
+  '2026-09-05':{
+    label:'Sa · 05.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück','Hüttenkäse mit Gemüse','Wochenend-Frühstück aus dem Kochbuch'],
+      ['Mittag',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse','lachs'),'vom Vorabend'],
+      ['Abend','Zucchini-Pilz-Frittata','Familienabendessen + 2 Lunchportionen für Sonntag']
+    ],
+    note:'Am Wochenende kein Quark mit Beeren. Neue Turbo-Gerichte statt Wiederholungen.',
+    preps:[]
+  },
+  '2026-09-06':{
+    label:'So · 06.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück','Pikantes Omelett','Wochenend-Frühstück aus dem Kochbuch'],
+      ['Mittag','Zucchini-Pilz-Frittata','vom Vorabend'],
+      ['Abend','Hackbällchen pikant','Familienabendessen + 2 Lunchportionen für Montag']
+    ],
+    note:'Die Montag-Biokiste kommt erst morgen; Zutaten für heute gehören zum normalen Einkauf/Vorrat.',
+    preps:[]
+  },
+  '2026-09-07':{
+    label:'Mo · 07.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
+      ['Mittag außer Haus','Hackbällchen pikant','vom Vorabend · Ulrike + Marcel'],
+      ['Abend','Blumenkohl-Curry mit Bohnen','Familienabendessen + 2 Lunchportionen für Dienstag']
+    ],
+    note:'Biokiste kommt heute. Ab jetzt Gemüse aus der Lieferung zuerst nutzen.',
+    preps:[]
+  },
+  '2026-09-08':{
+    label:'Di · 08.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
+      ['Mittag außer Haus','Blumenkohl-Curry mit Bohnen','vom Vorabend · Ulrike + Marcel'],
+      ['Abend','Kartoffelpfanne mit Spiegelei','Familienabendessen + 2 Lunchportionen für Mittwoch']
+    ],
+    note:'Meal Prep: zwei Portionen für Mittwoch direkt abfüllen.',
+    preps:[]
+  },
+  '2026-09-09':{
+    label:'Mi · 09.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
+      ['Mittag außer Haus','Kartoffelpfanne mit Spiegelei','vom Vorabend · Ulrike + Marcel'],
+      ['Abend','Auberginen-Pizza mit Mozzarella','Familienabendessen + 2 Lunchportionen für Donnerstag']
+    ],
+    note:'Abwechslungsreiche Turbo-Woche ohne Wiederholung der Hauptgerichte aus der Vorwoche.',
+    preps:[]
+  },
+  '2026-09-10':{
+    label:'Do · 10.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
+      ['Mittag außer Haus','Auberginen-Pizza mit Mozzarella','vom Vorabend · Ulrike + Marcel'],
+      ['Abend','Eingelegtes Schweinefilet mit buntem Gemüse','Familienabendessen + 2 Lunchportionen für Freitag']
+    ],
+    note:'Zwei Lunchportionen für Freitag zurückstellen.',
+    preps:[]
+  },
+  '2026-09-11':{
+    label:'Fr · 11.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
+      ['Mittag außer Haus','Eingelegtes Schweinefilet mit buntem Gemüse','vom Vorabend · Ulrike + Marcel'],
+      ['Abend','Eventuell außer Haus','Keine verderblichen Zutaten fest verplant']
+    ],
+    note:'Freitagabend bleibt bewusst flexibel.',
+    preps:[]
+  },
+  '2026-09-12':{
+    label:'Sa · 12.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück','Eventuell außer Haus','bewusst offen'],
+      ['Mittag','Eventuell außer Haus','bewusst offen'],
+      ['Abend','Linsensuppe mit Feta','Familienabendessen + 2 Lunchportionen für Sonntag']
+    ],
+    note:'Für Frühstück und Mittag keine zusätzlichen verderblichen Zutaten einplanen.',
+    preps:[]
+  },
+  '2026-09-13':{
+    label:'So · 13.09.', phase:'Turbo',
+    meals:[
+      ['Frühstück','Gebratener Hüttenkäse','Wochenend-Frühstück aus dem Kochbuch'],
+      ['Mittag','Linsensuppe mit Feta','vom Vorabend'],
+      ['Abend','Hähnchenbrust mit gegrillter Paprika & scharfer Salsa','Familienabendessen']
+    ],
+    note:'Kichererbsen-Salat ist für diese Woche nicht eingeplant.',
     preps:[]
   }
 };
 
 function renderToday(){
   const todayIso=new Date().toLocaleDateString('en-CA');
-  const d=weekPlan[todayIso] || weekPlan['2026-08-31'];
+  const d=weekPlan[todayIso] || weekPlan['2026-09-02'];
   const prepHtml=(d.preps||[]).length ? `
     <section style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:8px">VORBEREITUNG</div>
@@ -429,7 +539,7 @@ function renderToday(){
   </main>`;
 }
 
-let planDay='2026-08-31';
+let planDay='2026-09-02';
 
 function setPlanDay(day){
   planDay=day;
@@ -437,13 +547,13 @@ function setPlanDay(day){
 }
 
 function renderPlan(){
-  const d=weekPlan[planDay]||weekPlan['2026-08-31'];
+  const d=weekPlan[planDay]||weekPlan['2026-09-02'];
   document.getElementById('app').innerHTML=`<main class="shell">
-    <header><div><div class="eyebrow">WOCHE 1</div><h1>Plan</h1></div>
+    <header><div><div class="eyebrow">TURBOPHASE</div><h1>Plan</h1></div>
       <div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
     <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
-      <div><b>30.08.–04.09.</b><br><span class="muted">Zünderphase → Turbophase · geplant bis Freitagmittag</span></div>
+      <div><b>02.09.–13.09.</b><br><span class="muted">Meal Prep: Abendessen → 2 Erwachsenenportionen für den nächsten Mittag</span></div>
     </section>
 
     <section style="display:flex;gap:8px;overflow-x:auto;padding:4px 0 14px">
@@ -452,6 +562,19 @@ function renderPlan(){
           <div style="font-weight:800">${x.label}</div>
           <div class="muted" style="font-size:13px;margin-top:3px">${x.phase}</div>
         </button>`).join('')}
+    </section>
+
+    <section style="margin:4px 0 18px">
+      <div class="eyebrow" style="margin-bottom:8px">NÄCHSTE WOCHE · 07.–13.09.</div>
+      <div class="list">
+        ${Object.entries(weekPlan).filter(([key])=>key>='2026-09-07').map(([key,x])=>`
+          <article class="item" onclick="setPlanDay('${key}')" style="cursor:pointer">
+            <div class="body">
+              <div class="top"><h2>${x.label}</h2><span class="pill">${x.phase}</span></div>
+              ${x.meals.map(m=>`<p class="desc" style="margin:5px 0"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}</span></p>`).join('')}
+            </div>
+          </article>`).join('')}
+      </div>
     </section>
 
     ${targetCard()}
@@ -806,7 +929,7 @@ function confirmCookStart(key){
   if(!Number.isFinite(n)||n<=0){alert('Bitte eine gültige Portionszahl eingeben.');return;}
   cookServings=n; cookMultiplier=c.defaultYield? n/Number(c.defaultYield):1;
   resetCookTimer();
-  document.getElementById('portionStart')?.remove(); cookMode=key; cookStep=0; renderCookMode();
+  document.getElementById('portionStart')?.remove(); cookMode=key; cookStep=0; saveCookState(); renderCookMode();
 }
 
 
@@ -872,7 +995,7 @@ async function finishCook(){
   } else {
     alert('Gekocht ✓ Zutaten wurden mengenmäßig aus dem Vorrat abgebucht.');
   }
-  const finishedKey=cookMode; cookMode=null;cookToken=null;cookServings=null;cookMultiplier=1;resetCookTimer();releaseCookWakeLock();recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
+  const finishedKey=cookMode; cookMode=null;cookToken=null;cookServings=null;cookMultiplier=1;clearCookState();resetCookTimer();releaseCookWakeLock();recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
 }
 
 
@@ -934,6 +1057,96 @@ let cookTimerEndAt = null;
 let cookTimerRunning = false;
 let cookTimerInterval = null;
 let cookWakeLock = null;
+let cookPushEnabled = false;
+let cookPushTimerId = null;
+const COOK_VAPID_PUBLIC = 'BNQmSVC584jHv6hzLkLL8Ydh24rgobYuPBHXZUx0Z3LvWu2gk9lKcDVJ-yy_6yrDY32q2EHqHZvEjo18kI-sLog';
+
+
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+function isStandalonePWA(){
+  return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone===true;
+}
+async function getCookPushSubscription(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const reg=await navigator.serviceWorker.register('/sw.js');
+  await navigator.serviceWorker.ready;
+  return await reg.pushManager.getSubscription();
+}
+async function refreshCookPushState(){
+  try{
+    const sub=await getCookPushSubscription();
+    cookPushEnabled=!!sub && Notification.permission==='granted';
+  }catch(e){ cookPushEnabled=false; }
+  renderCookTimerOnly();
+}
+async function enableCookPush(){
+  if(!isStandalonePWA()){
+    alert('Für Hintergrund-Timer auf dem iPhone muss Kochen zuerst als App zum Home-Bildschirm hinzugefügt und von dort geöffnet werden. Danach hier noch einmal „Hintergrundalarm aktivieren“ antippen.');
+    return;
+  }
+  if(!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)){
+    alert('Dieses Gerät unterstützt Web-Push für diese App leider nicht.');
+    return;
+  }
+  try{
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted'){
+      alert('Mitteilungen wurden nicht erlaubt. Du kannst sie später in den iPhone-Einstellungen für Kochen aktivieren.');
+      return;
+    }
+    const reg=await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:urlBase64ToUint8Array(COOK_VAPID_PUBLIC)
+      });
+    }
+    const j=sub.toJSON();
+    const {error}=await sb.from('web_push_subscriptions').upsert({
+      user_id:userId,
+      endpoint:sub.endpoint,
+      p256dh:j.keys?.p256dh,
+      auth:j.keys?.auth,
+      updated_at:new Date().toISOString()
+    },{onConflict:'endpoint'});
+    if(error) throw error;
+    cookPushEnabled=true;
+    renderCookTimerOnly();
+    alert('Hintergrundalarm ist aktiviert ✓\n\nKochen darf dir jetzt auch bei gesperrtem iPhone eine Mitteilung schicken.');
+  }catch(e){
+    console.error(e);
+    alert('Hintergrundalarm konnte nicht aktiviert werden: '+(e?.message||e));
+  }
+}
+async function cancelServerCookTimer(){
+  if(!cookPushTimerId) return;
+  const id=cookPushTimerId;
+  cookPushTimerId=null;
+  try{
+    await sb.from('cooking_push_timers').update({status:'cancelled',updated_at:new Date().toISOString()}).eq('id',id);
+  }catch(e){}
+}
+async function scheduleServerCookTimer(){
+  if(!cookPushEnabled || !userId || !cookTimerRunning || !cookTimerEndAt) return;
+  await cancelServerCookTimer();
+  const recipeTitle=cookMode&&tm6Cook[cookMode]?.title ? tm6Cook[cookMode].title : 'Kochen';
+  const {data,error}=await sb.from('cooking_push_timers').insert({
+    user_id:userId,
+    title:'Kochtimer fertig',
+    body:`${recipeTitle}: Dein Timer ist abgelaufen.`,
+    fire_at:new Date(cookTimerEndAt).toISOString(),
+    status:'scheduled'
+  }).select('id').single();
+  if(error){ console.error(error); return; }
+  cookPushTimerId=data.id;
+}
 
 function formatCookTimer(seconds){
   const s=Math.max(0,Math.ceil(Number(seconds)||0));
@@ -951,6 +1164,8 @@ function renderCookTimerOnly(){
   if(el) el.textContent=formatCookTimer(currentCookTimerSeconds());
   const btn=document.getElementById('cookTimerStartPause');
   if(btn) btn.textContent=cookTimerRunning?'Pause':'Start';
+  const push=document.getElementById('cookPushStatus');
+  if(push) push.textContent=cookPushEnabled?'Hintergrundalarm aktiv ✓':'Hintergrundalarm aktivieren';
 }
 async function requestCookWakeLock(){
   try{
@@ -982,6 +1197,7 @@ function ensureCookTimerInterval(){
   },250);
 }
 function cookTimerAlarm(){
+  cancelServerCookTimer();
   try{
     navigator.vibrate?.([250,120,250,120,500]);
     const Ctx=window.AudioContext||window.webkitAudioContext;
@@ -995,35 +1211,42 @@ function cookTimerAlarm(){
   }catch(e){}
   alert('Timer ist fertig ✓');
 }
-function setCookTimerSeconds(seconds){
+async function setCookTimerSeconds(seconds){
+  await cancelServerCookTimer();
   cookTimerRunning=false;
   cookTimerEndAt=null;
   cookTimerSeconds=Math.max(0,Math.round(Number(seconds)||0));
   renderCookTimerOnly();
 }
-function adjustCookTimer(seconds){
+async function adjustCookTimer(seconds){
   const left=currentCookTimerSeconds();
   const next=Math.max(0,left+seconds);
   cookTimerSeconds=next;
-  if(cookTimerRunning) cookTimerEndAt=Date.now()+next*1000;
+  if(cookTimerRunning){
+    cookTimerEndAt=Date.now()+next*1000;
+    await scheduleServerCookTimer();
+  }
   renderCookTimerOnly();
 }
-function toggleCookTimer(){
+async function toggleCookTimer(){
   const left=currentCookTimerSeconds();
   if(cookTimerRunning){
     cookTimerSeconds=left;
     cookTimerRunning=false;
     cookTimerEndAt=null;
+    await cancelServerCookTimer();
   }else if(left>0){
     cookTimerSeconds=left;
     cookTimerEndAt=Date.now()+left*1000;
     cookTimerRunning=true;
     requestCookWakeLock();
     ensureCookTimerInterval();
+    await scheduleServerCookTimer();
   }
   renderCookTimerOnly();
 }
-function resetCookTimer(){
+async function resetCookTimer(){
+  await cancelServerCookTimer();
   cookTimerRunning=false;
   cookTimerEndAt=null;
   cookTimerSeconds=0;
@@ -1060,13 +1283,15 @@ function cookTimerPanel(step){
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button id="cookPushStatus" onclick="enableCookPush()" style="border:0;border-radius:12px;padding:8px 11px;background:#fff4d9;color:#183425;font-weight:850">${cookPushEnabled?'Hintergrundalarm aktiv ✓':'Hintergrundalarm aktivieren'}</button>
       <button onclick="adjustCookTimer(-60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">−1 Min</button>
       <button onclick="adjustCookTimer(60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">+1 Min</button>
       ${secs?`<button onclick="useStepTime()" style="border:0;border-radius:12px;padding:8px 11px;background:#dfe8d8;color:#183425;font-weight:850">Schrittzeit ${formatCookTimer(secs)} übernehmen</button>`:''}
     </div>
-    <div style="font-size:12px;opacity:.78;margin-top:8px">Bleibt beim Wechsel der Kochschritte aktiv. Auf unterstützten Geräten wird der Bildschirm beim laufenden Timer wach gehalten.</div>
+    <div style="font-size:12px;opacity:.78;margin-top:8px">Bleibt beim Wechsel der Kochschritte aktiv. Mit aktiviertem Hintergrundalarm kommt die Meldung auch bei gesperrtem iPhone; die Zustellung kann systembedingt bis zu etwa eine Minute nach der eingestellten Zeit erfolgen.</div>
   </section>`;
 }
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible' && cookMode){saveCookState();renderCookMode();}});
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     if(cookTimerRunning) requestCookWakeLock();
@@ -1090,6 +1315,7 @@ function cookNeedLine(line,title){
 }
 
 function renderCookMode(){
+  saveCookState();
   ensureCookTimerInterval();
   if(cookTimerRunning) requestCookWakeLock();
   const c=tm6Cook[cookMode], s=c.steps[cookStep];
@@ -1128,8 +1354,8 @@ function renderCookMode(){
     </section>
 
     <div style="display:grid;grid-template-columns:${cookStep===0?'1fr':'1fr 2fr'};gap:12px;margin-top:18px">
-      ${cookStep>0?`<button onclick="cookStep--;renderCookMode()" style="padding:18px;border:1px solid #d9d7ca;border-radius:20px;background:#fffdf8;font-size:18px;font-weight:700">Zurück</button>`:''}
-      <button onclick="${cookStep<c.steps.length-1?'cookStep++;renderCookMode()':'finishCook()'}" style="padding:18px;border:0;border-radius:20px;background:#183425;color:white;font-size:20px;font-weight:800">${cookStep<c.steps.length-1?'Weiter':'Gekocht & Vorrat abbuchen'}</button>
+      ${cookStep>0?`<button onclick="setCookStep(cookStep-1)" style="padding:18px;border:1px solid #d9d7ca;border-radius:20px;background:#fffdf8;font-size:18px;font-weight:700">Zurück</button>`:''}
+      <button onclick="${cookStep<c.steps.length-1?'setCookStep(cookStep+1)':'finishCook()'}" style="padding:18px;border:0;border-radius:20px;background:#183425;color:white;font-size:20px;font-weight:800">${cookStep<c.steps.length-1?'Weiter':'Gekocht & Vorrat abbuchen'}</button>
     </div>
   </main>`;
 }
@@ -1338,6 +1564,7 @@ function renderShopping(){
 }
 
 function renderApp(){
+  if(cookMode && typeof tm6Cook!=='undefined' && tm6Cook[cookMode]){renderCookMode();return;}
   if(activeTab==='shopping') renderShopping();
   else if(activeTab==='plan') renderPlan();
   else if(activeTab==='recipes') renderRecipes();
@@ -1658,7 +1885,7 @@ async function loadRows(doRefresh=true){
   }
   renderApp();
 }
-sb.auth.getSession().then(async ({data})=>{if(data.session){userId=data.session.user.id;await loadRows()}else renderLogin()});
+sb.auth.getSession().then(async ({data})=>{if(data.session){userId=data.session.user.id;await loadRows();restoreCookState();refreshCookPushState();renderApp()}else renderLogin()});
 sb.auth.onAuthStateChange((_e,session)=>{if(session){userId=session.user.id;setTimeout(loadRows,0)}else{rows=[];householdId='';userId='';renderLogin()}});
 </script>
 </body></html>
