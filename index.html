@@ -556,11 +556,12 @@ function renderPlan(){
       <div><b>02.09.–13.09.</b><br><span class="muted">Meal Prep: Abendessen → 2 Erwachsenenportionen für den nächsten Mittag</span></div>
     </section>
 
-    <section style="display:flex;gap:8px;overflow-x:auto;padding:4px 0 14px">
+    <div class="eyebrow" style="margin:4px 0 7px">ALLE TAGE · 02.–13.09.</div>
+    <section style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:4px 0 14px">
       ${Object.entries(weekPlan).map(([key,x])=>`
-        <button onclick="setPlanDay('${key}')" style="min-width:110px;border:${planDay===key?'2px solid #294936':'1px solid #d8d2c3'};background:${planDay===key?'#edf3e9':'#fffdf7'};border-radius:18px;padding:12px 14px;text-align:left">
-          <div style="font-weight:800">${x.label}</div>
-          <div class="muted" style="font-size:13px;margin-top:3px">${x.phase}</div>
+        <button onclick="setPlanDay('${key}')" style="min-width:0;border:${planDay===key?'2px solid #294936':'1px solid #d8d2c3'};background:${planDay===key?'#edf3e9':'#fffdf7'};border-radius:15px;padding:10px 5px;text-align:center">
+          <div style="font-weight:800;font-size:13px;white-space:nowrap">${x.label.replace(' · ',' ')}</div>
+          <div class="muted" style="font-size:11px;margin-top:2px">${x.phase}</div>
         </button>`).join('')}
     </section>
 
