@@ -405,19 +405,19 @@ const weekPlan = {
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
       ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Eventuell außer Haus','bewusst offen · TK-Lachs bleibt eingefroren']
+      ['Abend','Restaurant','Eiweiß + Gemüse/Salat · glutenfrei · Stärke-Beilage klein/weg · Soße/Dressing separat']
     ],
-    note:'Der Freitags-Einkauf deckt bereits Freitagabend bis einschließlich Dienstag ab. Freitagabend eventuell außer Haus: deshalb nichts nur für diesen Abend kaufen und TK-Lachs eingefroren lassen.',
+    note:'Freitagabend seid ihr sicher außer Haus. Restaurant-Regel: gegrillter Fisch, Steak, Hähnchen oder Garnelen mit Gemüse bzw. großem Salat wählen. Panaden, Marinaden, Soßen und Fritteusen wegen Gluten ausdrücklich prüfen. TK-Lachs bleibt eingefroren. Der Freitags-Einkauf deckt trotzdem Freitagabend bis einschließlich Dienstag ab, falls sich etwas ändert.',
     preps:[]
   },
   '2026-09-05':{
     label:'Sa · 05.09.', phase:'Turbo',
     meals:[
-      ['Frühstück','Eventuell außer Haus','bewusst offen'],
-      ['Mittag','Eventuell außer Haus','bewusst offen'],
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'Quark + Beeren in Box mitnehmen'],
+      ['Mittag','Unterwegs / Restaurant','Eiweiß + Gemüse/Salat · glutenfrei · Stärke-Beilage klein/weg'],
       ['Abend','Zucchini-Pilz-Frittata','Familienabendessen + 2 Lunchportionen für Sonntag']
     ],
-    note:'Samstagvormittag und -mittag eventuell außer Haus. Keine Zutaten speziell für Frühstück oder Mittag einplanen. Abends startet die Meal-Prep-Kette wieder.',
+    note:'Samstagfrüh seid ihr außer Haus; Quark mit Beeren wird mitgenommen. Mittags unterwegs möglichst proteinreich und gemüsereich essen: z. B. Hähnchen/Fisch/Steak/Garnelen mit Salat oder Gemüse. Dressing/Soße separat, Panade meiden und glutenfreie Zubereitung erfragen. Abends startet die Kochbuch-Meal-Prep-Kette mit der Zucchini-Pilz-Frittata wieder.',
     preps:[]
   },
   '2026-09-06':{
@@ -1060,6 +1060,12 @@ let cookTimerInterval = null;
 let cookWakeLock = null;
 let cookPushEnabled = false;
 let cookPushTimerId = null;
+let cookTimerExpanded = localStorage.getItem('kochen_timer_expanded_v1') === '1';
+function toggleCookTimerPanel(){
+  cookTimerExpanded=!cookTimerExpanded;
+  localStorage.setItem('kochen_timer_expanded_v1',cookTimerExpanded?'1':'0');
+  if(cookMode) renderCookMode();
+}
 const COOK_VAPID_PUBLIC = 'BNQmSVC584jHv6hzLkLL8Ydh24rgobYuPBHXZUx0Z3LvWu2gk9lKcDVJ-yy_6yrDY32q2EHqHZvEjo18kI-sLog';
 
 
@@ -1272,26 +1278,36 @@ function useStepTime(){
 }
 function cookTimerPanel(step){
   const secs=secondsFromStepSetting(step?.setting);
-  return `<section id="cookTimerPanel" style="position:sticky;top:8px;z-index:50;margin:12px 0 16px;padding:14px 16px;border-radius:22px;background:#183425;color:white;box-shadow:0 8px 24px rgba(20,40,28,.16)">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+  if(!cookTimerExpanded){
+    return `<section id="cookTimerPanel" style="position:sticky;top:8px;z-index:50;margin:8px 0 12px;padding:8px 10px;border-radius:16px;background:#183425;color:white;box-shadow:0 6px 18px rgba(20,40,28,.14)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="toggleCookTimerPanel()" aria-label="Timer einblenden" style="flex:1;border:0;border-radius:12px;padding:9px 11px;background:transparent;color:white;text-align:left;font-weight:850;font-size:15px">⏱ <span id="cookTimerDisplay">${formatCookTimer(currentCookTimerSeconds())}</span> · Timer einblenden</button>
+        ${cookTimerRunning?`<button id="cookTimerStartPause" onclick="toggleCookTimer()" style="border:0;border-radius:11px;padding:8px 11px;background:#fffdf8;color:#183425;font-weight:900">Pause</button>`:''}
+      </div>
+    </section>`;
+  }
+  return `<section id="cookTimerPanel" style="position:sticky;top:8px;z-index:50;margin:12px 0 16px;padding:12px 14px;border-radius:20px;background:#183425;color:white;box-shadow:0 8px 24px rgba(20,40,28,.16)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
       <div>
-        <div style="font-size:11px;letter-spacing:.12em;opacity:.78;font-weight:800">KOCHTIMER</div>
-        <div id="cookTimerDisplay" style="font-size:34px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums">${formatCookTimer(currentCookTimerSeconds())}</div>
+        <div style="font-size:10px;letter-spacing:.12em;opacity:.78;font-weight:800">KOCHTIMER</div>
+        <div id="cookTimerDisplay" style="font-size:30px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums">${formatCookTimer(currentCookTimerSeconds())}</div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-        <button id="cookTimerStartPause" onclick="toggleCookTimer()" style="border:0;border-radius:14px;padding:11px 15px;background:#fffdf8;color:#183425;font-weight:900">${cookTimerRunning?'Pause':'Start'}</button>
-        <button onclick="resetCookTimer()" style="border:1px solid rgba(255,255,255,.35);border-radius:14px;padding:11px 13px;background:transparent;color:white;font-weight:800">Reset</button>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+        <button id="cookTimerStartPause" onclick="toggleCookTimer()" style="border:0;border-radius:12px;padding:9px 13px;background:#fffdf8;color:#183425;font-weight:900">${cookTimerRunning?'Pause':'Start'}</button>
+        <button onclick="toggleCookTimerPanel()" style="border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:9px 11px;background:transparent;color:white;font-weight:800">Ausblenden</button>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button id="cookPushStatus" onclick="enableCookPush()" style="border:0;border-radius:12px;padding:8px 11px;background:#fff4d9;color:#183425;font-weight:850">${cookPushEnabled?'Hintergrundalarm aktiv ✓':'Hintergrundalarm aktivieren'}</button>
-      <button onclick="adjustCookTimer(-60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">−1 Min</button>
-      <button onclick="adjustCookTimer(60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">+1 Min</button>
-      ${secs?`<button onclick="useStepTime()" style="border:0;border-radius:12px;padding:8px 11px;background:#dfe8d8;color:#183425;font-weight:850">Schrittzeit ${formatCookTimer(secs)} übernehmen</button>`:''}
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
+      <button onclick="resetCookTimer()" style="border:1px solid rgba(255,255,255,.3);border-radius:11px;padding:7px 10px;background:transparent;color:white;font-weight:700">Reset</button>
+      <button onclick="adjustCookTimer(-60)" style="border:1px solid rgba(255,255,255,.3);border-radius:11px;padding:7px 10px;background:transparent;color:white;font-weight:700">−1 Min</button>
+      <button onclick="adjustCookTimer(60)" style="border:1px solid rgba(255,255,255,.3);border-radius:11px;padding:7px 10px;background:transparent;color:white;font-weight:700">+1 Min</button>
+      ${secs?`<button onclick="useStepTime()" style="border:0;border-radius:11px;padding:7px 10px;background:#dfe8d8;color:#183425;font-weight:850">Schrittzeit ${formatCookTimer(secs)}</button>`:''}
+      <button id="cookPushStatus" onclick="enableCookPush()" style="border:0;border-radius:11px;padding:7px 10px;background:#fff4d9;color:#183425;font-weight:800">${cookPushEnabled?'Hintergrundalarm ✓':'Hintergrundalarm'}</button>
     </div>
-    <div style="font-size:12px;opacity:.78;margin-top:8px">Bleibt beim Wechsel der Kochschritte aktiv. Mit aktiviertem Hintergrundalarm kommt die Meldung auch bei gesperrtem iPhone; die Zustellung kann systembedingt bis zu etwa eine Minute nach der eingestellten Zeit erfolgen.</div>
+    <div style="font-size:11px;opacity:.75;margin-top:7px">Der Timer läuft beim Ausblenden weiter. Die kompakte Leiste zeigt nur Restzeit und bei laufendem Timer „Pause“.</div>
   </section>`;
 }
+
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible' && cookMode){saveCookState();renderCookMode();}});
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
