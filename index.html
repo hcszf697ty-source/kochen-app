@@ -72,6 +72,7 @@ let cookMode=null;
 let cookStep=0;
 let cookServings=null;
 let cookMultiplier=1;
+let cookStateParked=false; // gespeicherter Kochstand vorhanden, aber nicht automatisch öffnen
 
 const COOK_STATE_KEY='kochen_active_cook_v3';
 function saveCookState(){
@@ -99,16 +100,53 @@ function restoreCookState(){
     cookTimerEndAt=s.cookTimerEndAt?Number(s.cookTimerEndAt):null;
     cookTimerRunning=!!s.cookTimerRunning && !!cookTimerEndAt;
     cookPushTimerId=s.cookPushTimerId||null;
-    activeTab='recipes'; recipeOpen=null;
+    // Nach einem echten Reload nur den Stand wiederherstellen, nicht ungefragt den Kochmodus öffnen.
+    // So bleibt z. B. 'Heute' sichtbar, während der Kochstand erhalten bleibt.
+    cookStateParked=true;
+    recipeOpen=null;
     return true;
   }catch(e){clearCookState();return false;}
 }
 function setCookStep(next){
   if(!cookMode)return;
+  cookStateParked=false;
   cookStep=Math.max(0,Math.min(Number(next)||0,tm6Cook[cookMode].steps.length-1));
   saveCookState();
   renderCookMode();
 }
+
+function resumeCookMode(){
+  if(!cookMode)return;
+  cookStateParked=false;
+  activeTab='recipes';
+  recipeOpen=null;
+  renderCookMode();
+}
+function parkCookMode(targetTab='today'){
+  if(cookMode) saveCookState();
+  cookStateParked=true;
+  activeTab=targetTab;
+  recipeOpen=null;
+  renderApp();
+}
+function parkCookToRecipe(){
+  if(cookMode) saveCookState();
+  const key=cookMode;
+  cookStateParked=true;
+  activeTab='recipes';
+  recipeOpen=key;
+  renderRecipes();
+}
+function cookResumeCard(){
+  if(!cookMode || !cookStateParked || !tm6Cook[cookMode]) return '';
+  const c=tm6Cook[cookMode];
+  const step=Math.max(0,Math.min(cookStep,c.steps.length-1));
+  return `<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a">
+    <div style="width:100%"><b>Kochmodus pausiert</b><br><span class="muted">${c.title} · Schritt ${step+1}/${c.steps.length} bleibt gespeichert.</span>
+    <button onclick="resumeCookMode()" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Kochmodus fortsetzen</button></div>
+  </section>`;
+}
+
 function closeCookMode(){
   recipeOpen=cookMode;
   cookMode=null; cookStep=0; cookServings=null; cookMultiplier=1;
@@ -405,19 +443,19 @@ const weekPlan = {
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
       ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Eventuell außer Haus','bewusst offen · TK-Lachs bleibt eingefroren']
+      ['Abend','Restaurant','Eiweiß + Gemüse/Salat · glutenfrei · Stärke-Beilage klein/weg · Soße/Dressing separat']
     ],
-    note:'Freitagabend eventuell außer Haus. Den TK-Lachs deshalb nicht auftauen und keine verderblichen Zutaten extra für diesen Abend einplanen.',
+    note:'Freitagabend seid ihr sicher außer Haus. Restaurant-Regel: gegrillter Fisch, Steak, Hähnchen oder Garnelen mit Gemüse bzw. großem Salat wählen. Panaden, Marinaden, Soßen und Fritteusen wegen Gluten ausdrücklich prüfen. TK-Lachs bleibt eingefroren. Der Freitags-Einkauf deckt trotzdem Freitagabend bis einschließlich Dienstag ab, falls sich etwas ändert.',
     preps:[]
   },
   '2026-09-05':{
     label:'Sa · 05.09.', phase:'Turbo',
     meals:[
-      ['Frühstück','Eventuell außer Haus','bewusst offen'],
-      ['Mittag','Eventuell außer Haus','bewusst offen'],
+      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'Quark + Beeren in Box mitnehmen'],
+      ['Mittag','Unterwegs / Restaurant','Eiweiß + Gemüse/Salat · glutenfrei · Stärke-Beilage klein/weg'],
       ['Abend','Zucchini-Pilz-Frittata','Familienabendessen + 2 Lunchportionen für Sonntag']
     ],
-    note:'Samstagvormittag und -mittag eventuell außer Haus. Keine Zutaten speziell für Frühstück oder Mittag einplanen. Abends startet die Meal-Prep-Kette wieder.',
+    note:'Samstagfrüh seid ihr außer Haus; Quark mit Beeren wird mitgenommen. Mittags unterwegs möglichst proteinreich und gemüsereich essen: z. B. Hähnchen/Fisch/Steak/Garnelen mit Salat oder Gemüse. Dressing/Soße separat, Panade meiden und glutenfreie Zubereitung erfragen. Abends startet die Kochbuch-Meal-Prep-Kette mit der Zucchini-Pilz-Frittata wieder.',
     preps:[]
   },
   '2026-09-06':{
@@ -485,7 +523,7 @@ const weekPlan = {
     meals:[
       ['Frühstück','Hüttenkäse mit Gemüse','Wochenend-Frühstück aus dem Kochbuch'],
       ['Mittag','Linsensuppe mit Feta','vom Vorabend'],
-      ['Abend','Hähnchenbrust mit gegrillter Paprika & scharfer Salsa','Familienabendessen + 2 Lunchportionen für Sonntag']
+      ['Abend','Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','Familienabendessen + 2 Lunchportionen für Sonntag']
     ],
     note:'Samstag ist wieder als normaler Zuhause-Tag eingeplant. Am Wochenende kein Quark mit Beeren.',
     preps:[]
@@ -494,8 +532,8 @@ const weekPlan = {
     label:'So · 13.09.', phase:'Turbo',
     meals:[
       ['Frühstück','Gebratener Hüttenkäse','Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Hähnchenbrust mit gegrillter Paprika & scharfer Salsa','vom Vorabend'],
-      ['Abend','Seelachsfilet auf buntem Gemüse','Familienabendessen']
+      ['Mittag','Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','vom Vorabend'],
+      ['Abend','Schlemmerfilet auf buntem Gemüse','Familienabendessen']
     ],
     note:'Kichererbsen-Salat ist für diese Woche nicht eingeplant.',
     preps:[]
@@ -520,6 +558,7 @@ function renderToday(){
     <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
       <div><b>${d.label}</b><br><span class="muted">${d.phase}phase</span></div>
     </section>
+    ${cookResumeCard()}
     ${targetCard()}
     ${nutritionCheckCard(d)}
     ${(()=>{const t=dayTimeSummary(d);return t?`<section class="notice" style="margin-top:14px"><div><b>Kochaufwand heute</b><br><span class="muted">${t.active} Min aktiv · ${t.total} Min gesamt</span></div></section>`:''})()}
@@ -930,7 +969,7 @@ function confirmCookStart(key){
   if(!Number.isFinite(n)||n<=0){alert('Bitte eine gültige Portionszahl eingeben.');return;}
   cookServings=n; cookMultiplier=c.defaultYield? n/Number(c.defaultYield):1;
   resetCookTimer();
-  document.getElementById('portionStart')?.remove(); cookMode=key; cookStep=0; saveCookState(); renderCookMode();
+  document.getElementById('portionStart')?.remove(); cookMode=key; cookStep=0; cookStateParked=false; saveCookState(); renderCookMode();
 }
 
 
@@ -996,7 +1035,7 @@ async function finishCook(){
   } else {
     alert('Gekocht ✓ Zutaten wurden mengenmäßig aus dem Vorrat abgebucht.');
   }
-  const finishedKey=cookMode; cookMode=null;cookToken=null;cookServings=null;cookMultiplier=1;clearCookState();resetCookTimer();releaseCookWakeLock();recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
+  const finishedKey=cookMode; cookMode=null;cookStateParked=false;cookToken=null;cookServings=null;cookMultiplier=1;clearCookState();resetCookTimer();releaseCookWakeLock();recipeOpen=finishedKey;activeTab='recipes';renderRecipes();
 }
 
 
@@ -1060,6 +1099,12 @@ let cookTimerInterval = null;
 let cookWakeLock = null;
 let cookPushEnabled = false;
 let cookPushTimerId = null;
+let cookTimerExpanded = localStorage.getItem('kochen_timer_expanded_v1') === '1';
+function toggleCookTimerPanel(){
+  cookTimerExpanded=!cookTimerExpanded;
+  localStorage.setItem('kochen_timer_expanded_v1',cookTimerExpanded?'1':'0');
+  if(cookMode) renderCookMode();
+}
 const COOK_VAPID_PUBLIC = 'BNQmSVC584jHv6hzLkLL8Ydh24rgobYuPBHXZUx0Z3LvWu2gk9lKcDVJ-yy_6yrDY32q2EHqHZvEjo18kI-sLog';
 
 
@@ -1272,27 +1317,37 @@ function useStepTime(){
 }
 function cookTimerPanel(step){
   const secs=secondsFromStepSetting(step?.setting);
-  return `<section id="cookTimerPanel" style="position:sticky;top:8px;z-index:50;margin:12px 0 16px;padding:14px 16px;border-radius:22px;background:#183425;color:white;box-shadow:0 8px 24px rgba(20,40,28,.16)">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+  if(!cookTimerExpanded){
+    return `<section id="cookTimerPanel" style="position:sticky;top:8px;z-index:50;margin:8px 0 12px;padding:8px 10px;border-radius:16px;background:#183425;color:white;box-shadow:0 6px 18px rgba(20,40,28,.14)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="toggleCookTimerPanel()" aria-label="Timer einblenden" style="flex:1;border:0;border-radius:12px;padding:9px 11px;background:transparent;color:white;text-align:left;font-weight:850;font-size:15px">⏱ <span id="cookTimerDisplay">${formatCookTimer(currentCookTimerSeconds())}</span> · Timer einblenden</button>
+        ${cookTimerRunning?`<button id="cookTimerStartPause" onclick="toggleCookTimer()" style="border:0;border-radius:11px;padding:8px 11px;background:#fffdf8;color:#183425;font-weight:900">Pause</button>`:''}
+      </div>
+    </section>`;
+  }
+  return `<section id="cookTimerPanel" style="position:sticky;top:8px;z-index:50;margin:12px 0 16px;padding:12px 14px;border-radius:20px;background:#183425;color:white;box-shadow:0 8px 24px rgba(20,40,28,.16)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
       <div>
-        <div style="font-size:11px;letter-spacing:.12em;opacity:.78;font-weight:800">KOCHTIMER</div>
-        <div id="cookTimerDisplay" style="font-size:34px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums">${formatCookTimer(currentCookTimerSeconds())}</div>
+        <div style="font-size:10px;letter-spacing:.12em;opacity:.78;font-weight:800">KOCHTIMER</div>
+        <div id="cookTimerDisplay" style="font-size:30px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums">${formatCookTimer(currentCookTimerSeconds())}</div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-        <button id="cookTimerStartPause" onclick="toggleCookTimer()" style="border:0;border-radius:14px;padding:11px 15px;background:#fffdf8;color:#183425;font-weight:900">${cookTimerRunning?'Pause':'Start'}</button>
-        <button onclick="resetCookTimer()" style="border:1px solid rgba(255,255,255,.35);border-radius:14px;padding:11px 13px;background:transparent;color:white;font-weight:800">Reset</button>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+        <button id="cookTimerStartPause" onclick="toggleCookTimer()" style="border:0;border-radius:12px;padding:9px 13px;background:#fffdf8;color:#183425;font-weight:900">${cookTimerRunning?'Pause':'Start'}</button>
+        <button onclick="toggleCookTimerPanel()" style="border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:9px 11px;background:transparent;color:white;font-weight:800">Ausblenden</button>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button id="cookPushStatus" onclick="enableCookPush()" style="border:0;border-radius:12px;padding:8px 11px;background:#fff4d9;color:#183425;font-weight:850">${cookPushEnabled?'Hintergrundalarm aktiv ✓':'Hintergrundalarm aktivieren'}</button>
-      <button onclick="adjustCookTimer(-60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">−1 Min</button>
-      <button onclick="adjustCookTimer(60)" style="border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 11px;background:transparent;color:white;font-weight:700">+1 Min</button>
-      ${secs?`<button onclick="useStepTime()" style="border:0;border-radius:12px;padding:8px 11px;background:#dfe8d8;color:#183425;font-weight:850">Schrittzeit ${formatCookTimer(secs)} übernehmen</button>`:''}
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
+      <button onclick="resetCookTimer()" style="border:1px solid rgba(255,255,255,.3);border-radius:11px;padding:7px 10px;background:transparent;color:white;font-weight:700">Reset</button>
+      <button onclick="adjustCookTimer(-60)" style="border:1px solid rgba(255,255,255,.3);border-radius:11px;padding:7px 10px;background:transparent;color:white;font-weight:700">−1 Min</button>
+      <button onclick="adjustCookTimer(60)" style="border:1px solid rgba(255,255,255,.3);border-radius:11px;padding:7px 10px;background:transparent;color:white;font-weight:700">+1 Min</button>
+      ${secs?`<button onclick="useStepTime()" style="border:0;border-radius:11px;padding:7px 10px;background:#dfe8d8;color:#183425;font-weight:850">Schrittzeit ${formatCookTimer(secs)}</button>`:''}
+      <button id="cookPushStatus" onclick="enableCookPush()" style="border:0;border-radius:11px;padding:7px 10px;background:#fff4d9;color:#183425;font-weight:800">${cookPushEnabled?'Hintergrundalarm ✓':'Hintergrundalarm'}</button>
     </div>
-    <div style="font-size:12px;opacity:.78;margin-top:8px">Bleibt beim Wechsel der Kochschritte aktiv. Mit aktiviertem Hintergrundalarm kommt die Meldung auch bei gesperrtem iPhone; die Zustellung kann systembedingt bis zu etwa eine Minute nach der eingestellten Zeit erfolgen.</div>
+    <div style="font-size:11px;opacity:.75;margin-top:7px">Der Timer läuft beim Ausblenden weiter. Die kompakte Leiste zeigt nur Restzeit und bei laufendem Timer „Pause“.</div>
   </section>`;
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible' && cookMode){saveCookState();renderCookMode();}});
+
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible' && cookMode && !cookStateParked){saveCookState();renderCookMode();}});
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     if(cookTimerRunning) requestCookWakeLock();
@@ -1316,6 +1371,7 @@ function cookNeedLine(line,title){
 }
 
 function renderCookMode(){
+  cookStateParked=false;
   saveCookState();
   ensureCookTimerInterval();
   if(cookTimerRunning) requestCookWakeLock();
@@ -1324,7 +1380,7 @@ function renderCookMode(){
   document.getElementById('app').innerHTML=`<main class="shell">
     <header>
       <div><div class="eyebrow">TM6-KOCHMODUS · ${cookStep+1}/${c.steps.length}</div><h1 style="font-size:38px">${c.title}</h1></div>
-      <div class="actions"><button class="icon" onclick="recipeOpen=cookMode;cookMode=null;renderRecipes()">×</button></div>
+      <div class="actions"><button class="icon" onclick="parkCookToRecipe()" title="Kochmodus pausieren">×</button></div>
     </header>
 
     <div style="height:8px;background:#e5e6df;border-radius:999px;overflow:hidden;margin:6px 0 18px">
@@ -1370,6 +1426,7 @@ function renderRecipes(){
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
     <div><b>Original & Anpassung getrennt</b><br><span class="muted">Die Kochbuchzutaten bleiben sichtbar; Änderungen stehen extra dabei.</span></div>
   </section>
+  ${cookResumeCard()}
 
   <section class="list">
     ${Object.entries(recipeData).map(([key,r])=>`
@@ -1536,6 +1593,34 @@ async function acceptShoppingSubstitution(shoppingId){
   renderShopping();
 }
 
+function shoppingDayForNeededBy(neededBy){
+  if(!neededBy) return null;
+  const d=new Date(neededBy+'T12:00:00');
+  if(Number.isNaN(d.getTime())) return null;
+  const dow=d.getDay(); // So=0 ... Mi=3 ... Fr=5
+  let back=0;
+  if(dow===3) back=0;       // Mittwoch: Einkauf am selben Tag
+  else if(dow===4) back=1;  // Donnerstag: Mittwoch
+  else if(dow===5) back=0;  // Freitag: Einkauf am selben Tag (inkl. Freitagabend)
+  else if(dow===6) back=1;  // Samstag: Freitag
+  else if(dow===0) back=2;  // Sonntag: Freitag
+  else if(dow===1) back=3;  // Montag: Freitag
+  else if(dow===2) back=4;  // Dienstag: Freitag
+  const x=new Date(d); x.setDate(x.getDate()-back);
+  return x.toLocaleDateString('en-CA');
+}
+function shoppingDayLabel(day){
+  if(!day) return 'Ohne festen Einkaufstag';
+  const d=new Date(day+'T12:00:00');
+  const dow=d.getDay();
+  const prefix=dow===5?'Freitagseinkauf':'Mittwochseinkauf';
+  const coverage=dow===5?'deckt Freitagabend bis Dienstag':'deckt Mittwoch und Donnerstag';
+  return `${prefix} · ${d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})} · ${coverage}`;
+}
+const confirmedBioBox0907 = [
+  '1 kg Tomaten rund','0,5 kg Aubergine','1 Blumenkohl','2 Bund Lauchzwiebeln','0,5 kg Möhren','0,5 kg Zucchini'
+];
+
 function renderShopping(){
   const vis=rows.filter(r=>{
     const name=(r.foods?.name||'').toLowerCase();
@@ -1549,23 +1634,40 @@ function renderShopping(){
   const cc=rows.filter(r=>r.category==='Vorrat prüfen'&&!r.checked).length;
   const dc=rows.filter(r=>r.checked).length;
   document.getElementById('app').innerHTML=`<main class="shell">
-  <header><div><div class="eyebrow">SO–FR · 30.08.–04.09.</div><h1>Einkaufsliste</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+  <header><div><div class="eyebrow">FESTER RHYTHMUS · MI + FR</div><h1>Einkaufsliste</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
   <section class="stats"><div><b>${bc}</b><span>zu kaufen</span></div><div><b>${cc}</b><span>Vorrat prüfen</span></div><div><b>${dc}</b><span>erledigt</span></div></section>
   <div class="search">⌕<input placeholder="Artikel suchen" value="${esc(query)}" oninput="query=this.value;renderShopping()"></div>
   <div class="filters">${[['all','Alle'],['buy','Zu kaufen'],['check','Prüfen'],['done','Erledigt']].map(x=>`<button class="${filter===x[0]?'active':''}" onclick="filter='${x[0]}';renderShopping()">${x[1]}</button>`).join('')}</div>
   ${msg?`<div class="notice"><div>${esc(msg)}</div>${userId&&msg.includes('noch kein Haushalt')?`<div class="uid"><code>${esc(userId)}</code><button onclick="copyUid()">User-ID kopieren</button></div>`:''}</div>`:''}
+  <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
+    <div><b>Nur Mittwoch + Freitag einkaufen</b><br><span class="muted"><b>Freitag:</b> für Freitagabend bis Dienstag · <b>Mittwoch:</b> für Mittwoch und Donnerstag. Der Freitag selbst gehört ausdrücklich schon zum Freitagseinkauf. Montags wird die Biokiste zuerst gegengerechnet.</span></div>
+  </section>
+  <section class="notice" style="margin-bottom:12px;background:#f6f1e6;border-color:#dfd4bb">
+    <div><b>Biokiste 07.09. · bestellt</b><br><span class="muted">${confirmedBioBox0907.join(' · ')}</span></div>
+  </section>
   <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
     <div><b>Smart-Abgleich aktiv</b><br><span class="muted">Der Bedarf wird nach Datum chronologisch reserviert: Vorrat → bereits gekauft → rechtzeitige Lieferung → Einkauf. Derselbe Bestand kann dadurch nicht mehr für zwei spätere Gerichte gleichzeitig verwendet werden. ${smartSummary?`${smartSummary.reservations||0} Zutatenbedarfe geprüft · ${smartSummary.auto_shopping_rows||0} automatische Einkaufsposten.`:'Beim Laden wird automatisch neu gerechnet.'}</span></div>
   </section>
   <section class="notice" style="margin-bottom:12px;background:#fff8e8;border-color:#ead39a">
     <div><b>Wichtig</b><br><span class="muted">Automatisch gerechnet wird nur für Rezepte, deren Zutaten vollständig in der Rezeptdatenbank erfasst sind. Noch unvollständige Kochbuchrezepte bleiben als manuelle Einkaufsposten erhalten.</span></div>
   </section>
-  <section class="list">${vis.map(r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}${r.auto_generated?' · automatisch aus dem Plan':r.manually_added?' · manuell geschützt':''}</div>`:''}${(()=>{const s=substitutionSuggestionForShopping(r);return s&&!s.already?`<div class="notice" style="margin-top:10px;background:#edf3e9;border-color:#d7e2d0"><div><b>Alternative im Vorrat gefunden</b><br><span class="muted">${s.needed.toLocaleString('de-DE')} ${esc(r.required_unit)} ${esc(s.foodName)} können die Fehlmenge ersetzen. Originalrezept bleibt dokumentiert.</span><br><button onclick="acceptShoppingSubstitution('${r.id}')" style="margin-top:9px;padding:9px 12px;border:0;border-radius:13px;background:#294936;color:white;font-weight:700">Alternative verwenden</button></div></div>`:s?.already?`<div class="meta" style="margin-top:8px">✓ Alternative bestätigt: ${esc(s.foodName)}</div>`:''})()}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`).join('')}</section>
+  ${(()=>{
+    const groups=new Map();
+    vis.forEach(r=>{
+      const k=shoppingDayForNeededBy(r.needed_by)||'none';
+      if(!groups.has(k)) groups.set(k,[]);
+      groups.get(k).push(r);
+    });
+    const ordered=[...groups.keys()].sort((a,b)=>a==='none'?1:b==='none'?-1:a.localeCompare(b));
+    const itemHtml=r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})} · Einkauf ${shoppingDayForNeededBy(r.needed_by)?new Date(shoppingDayForNeededBy(r.needed_by)+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}):'offen'}${r.auto_generated?' · automatisch aus dem Plan':r.manually_added?' · manuell geschützt':''}</div>`:''}${(()=>{const s=substitutionSuggestionForShopping(r);return s&&!s.already?`<div class="notice" style="margin-top:10px;background:#edf3e9;border-color:#d7e2d0"><div><b>Alternative im Vorrat gefunden</b><br><span class="muted">${s.needed.toLocaleString('de-DE')} ${esc(r.required_unit)} ${esc(s.foodName)} können die Fehlmenge ersetzen. Originalrezept bleibt dokumentiert.</span><br><button onclick="acceptShoppingSubstitution('${r.id}')" style="margin-top:9px;padding:9px 12px;border:0;border-radius:13px;background:#294936;color:white;font-weight:700">Alternative verwenden</button></div></div>`:s?.already?`<div class="meta" style="margin-top:8px">✓ Alternative bestätigt: ${esc(s.foodName)}</div>`:''})()}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`;
+    if(!ordered.length) return '<section class="notice"><div><b>Alles erledigt</b><br><span class="muted">Für den gewählten Filter gibt es gerade keine Einträge.</span></div></section>';
+    return ordered.map(k=>`<section style="margin-top:18px"><div class="eyebrow" style="margin:0 4px 8px">${esc(k==='none'?'OHNE TERMIN':shoppingDayLabel(k).toUpperCase())}</div><div class="list">${groups.get(k).map(itemHtml).join('')}</div></section>`).join('');
+  })()}
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
 }
 
 function renderApp(){
-  if(cookMode && typeof tm6Cook!=='undefined' && tm6Cook[cookMode]){renderCookMode();return;}
+  if(cookMode && !cookStateParked && typeof tm6Cook!=='undefined' && tm6Cook[cookMode]){renderCookMode();return;}
   if(activeTab==='shopping') renderShopping();
   else if(activeTab==='plan') renderPlan();
   else if(activeTab==='recipes') renderRecipes();
