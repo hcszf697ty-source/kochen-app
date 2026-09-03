@@ -75,6 +75,10 @@ let cookMultiplier=1;
 let cookStateParked=false; // gespeicherter Kochstand vorhanden, aber nicht automatisch öffnen
 
 const COOK_STATE_KEY='kochen_active_cook_v3';
+try{
+  const _oldCook=JSON.parse(localStorage.getItem(COOK_STATE_KEY)||'null');
+  if(_oldCook && String(_oldCook.cookMode||'').toLowerCase().includes('haehnchen')) localStorage.removeItem(COOK_STATE_KEY);
+}catch(e){}
 function saveCookState(){
   try{
     if(!cookMode){localStorage.removeItem(COOK_STATE_KEY);return;}
@@ -1425,7 +1429,7 @@ function renderRecipes(){
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
     <div><b>Original & Anpassung getrennt</b><br><span class="muted">Die Kochbuchzutaten bleiben sichtbar; Änderungen stehen extra dabei.</span></div>
   </section>
-  ${cookResumeCard()}
+  
 
   <section class="list">
     ${Object.entries(recipeData).map(([key,r])=>`
@@ -1660,55 +1664,60 @@ function fridayManualHtml(){
 
 
 function renderShopping(){
-  const vis=rows.filter(r=>{
-    const name=(r.foods?.name||'').toLowerCase();
-    if(query && !name.includes(query.toLowerCase())) return false;
-    if(filter==='buy') return r.category!=='Vorrat prüfen' && !r.checked;
-    if(filter==='check') return r.category==='Vorrat prüfen' && !r.checked;
-    if(filter==='done') return r.checked;
-    return true;
-  });
-  const fridayState=fridayManualState();
-  const manualBuy=fridayBuy0409.filter(x=>!fridayState[x.id]).length;
-  const manualCheck=fridayCheck0409.filter(x=>!fridayState[x.id]).length;
-  const manualDone=[...fridayBuy0409,...fridayCheck0409].filter(x=>fridayState[x.id]).length;
-  const bc=manualBuy;
-  const cc=manualCheck;
-  const dc=manualDone;
+  const st=fridayManualState();
+  const allItems=[...fridayShopping0409,...fridayCheck0409];
+  const buyOpen=fridayShopping0409.filter(x=>!st[x.id]).length;
+  const checkOpen=fridayCheck0409.filter(x=>!st[x.id]).length;
+  const done=allItems.filter(x=>st[x.id]).length;
+
+  const row=x=>`<article class="item ${st[x.id]?'done':''}">
+    <button class="check" onclick="toggleFridayManual('${x.id}')">${st[x.id]?'✓':''}</button>
+    <div class="body">
+      <div class="top"><h2>${esc(x.name)}</h2><span class="pill">${esc(x.qty)}</span></div>
+      <p class="desc">${esc(x.why)}</p>
+    </div>
+  </article>`;
+
   document.getElementById('app').innerHTML=`<main class="shell">
-  <header><div><div class="eyebrow">FESTER RHYTHMUS · MI + FR</div><h1>Einkaufsliste</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
-  <div class="eyebrow" style="margin:10px 4px 6px">FREITAG 04.09.</div><section class="stats"><div><b>${bc}</b><span>zu kaufen</span></div><div><b>${cc}</b><span>Vorrat prüfen</span></div><div><b>${dc}</b><span>erledigt</span></div></section>
-  <div class="search">⌕<input placeholder="Artikel suchen" value="${esc(query)}" oninput="query=this.value;renderShopping()"></div>
-  <div class="filters">${[['all','Alle'],['buy','Zu kaufen'],['check','Prüfen'],['done','Erledigt']].map(x=>`<button class="${filter===x[0]?'active':''}" onclick="filter='${x[0]}';renderShopping()">${x[1]}</button>`).join('')}</div>
-  ${msg?`<div class="notice"><div>${esc(msg)}</div>${userId&&msg.includes('noch kein Haushalt')?`<div class="uid"><code>${esc(userId)}</code><button onclick="copyUid()">User-ID kopieren</button></div>`:''}</div>`:''}
-  <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
-    <div><b>Nur Mittwoch + Freitag einkaufen</b><br><span class="muted"><b>Freitag:</b> für Freitagabend bis Dienstag · <b>Mittwoch:</b> für Mittwoch und Donnerstag. Der Freitag selbst gehört ausdrücklich schon zum Freitagseinkauf. Montags wird die Biokiste zuerst gegengerechnet.</span></div>
-  </section>
-  <section class="notice" style="margin-bottom:12px;background:#f6f1e6;border-color:#dfd4bb">
-    <div><b>Biokiste 07.09. · bestellt</b><br><span class="muted">${confirmedBioBox0907.join(' · ')}</span></div>
-  </section>
-  ${fridayManualHtml()}
-  <details style="margin-top:18px"><summary class="muted" style="cursor:pointer;padding:10px 4px">Automatische Hintergrundliste anzeigen</summary>
-  <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
-    <div><b>Smart-Abgleich aktiv</b><br><span class="muted">Der Bedarf wird nach Datum chronologisch reserviert: Vorrat → bereits gekauft → rechtzeitige Lieferung → Einkauf. Derselbe Bestand kann dadurch nicht mehr für zwei spätere Gerichte gleichzeitig verwendet werden. ${smartSummary?`${smartSummary.reservations||0} Zutatenbedarfe geprüft · ${smartSummary.auto_shopping_rows||0} automatische Einkaufsposten.`:'Beim Laden wird automatisch neu gerechnet.'}</span></div>
-  </section>
-  <section class="notice" style="margin-bottom:12px;background:#fff8e8;border-color:#ead39a">
-    <div><b>Wichtig</b><br><span class="muted">Automatisch gerechnet wird nur für Rezepte, deren Zutaten vollständig in der Rezeptdatenbank erfasst sind. Noch unvollständige Kochbuchrezepte bleiben als manuelle Einkaufsposten erhalten.</span></div>
-  </section>
-  ${(()=>{
-    const groups=new Map();
-    vis.forEach(r=>{
-      const k=shoppingDayForNeededBy(r.needed_by)||'none';
-      if(!groups.has(k)) groups.set(k,[]);
-      groups.get(k).push(r);
-    });
-    const ordered=[...groups.keys()].sort((a,b)=>a==='none'?1:b==='none'?-1:a.localeCompare(b));
-    const itemHtml=r=>`<article class="item ${r.checked?'done':''}"><button class="check" onclick="toggle('${r.id}')">${r.checked?'✓':''}</button><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Unbekannter Artikel')}</h2><span class="pill ${r.category==='Vorrat prüfen'?'warn':''}">${esc(r.category==='Vorrat prüfen'?'prüfen':formatBuy(r))}</span></div><p class="desc">${esc(reason(r))}</p>${r.needed_by?`<div class="meta">benötigt ${new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})} · Einkauf ${shoppingDayForNeededBy(r.needed_by)?new Date(shoppingDayForNeededBy(r.needed_by)+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}):'offen'}${r.auto_generated?' · automatisch aus dem Plan':r.manually_added?' · manuell geschützt':''}</div>`:''}${(()=>{const s=substitutionSuggestionForShopping(r);return s&&!s.already?`<div class="notice" style="margin-top:10px;background:#edf3e9;border-color:#d7e2d0"><div><b>Alternative im Vorrat gefunden</b><br><span class="muted">${s.needed.toLocaleString('de-DE')} ${esc(r.required_unit)} ${esc(s.foodName)} können die Fehlmenge ersetzen. Originalrezept bleibt dokumentiert.</span><br><button onclick="acceptShoppingSubstitution('${r.id}')" style="margin-top:9px;padding:9px 12px;border:0;border-radius:13px;background:#294936;color:white;font-weight:700">Alternative verwenden</button></div></div>`:s?.already?`<div class="meta" style="margin-top:8px">✓ Alternative bestätigt: ${esc(s.foodName)}</div>`:''})()}${!r.checked&&r.category!=='Vorrat prüfen'?`<button onclick="openRealPurchase('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Gekauft · echte Packung eingeben</button>`:''}${r.checked?`<button onclick="putAway('${r.id}')" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">Eingeräumt</button>`:''}</div></article>`;
-    if(!ordered.length) return '<section class="notice"><div><b>Alles erledigt</b><br><span class="muted">Für den gewählten Filter gibt es gerade keine Einträge.</span></div></section>';
-    return ordered.map(k=>`<section style="margin-top:18px"><div class="eyebrow" style="margin:0 4px 8px">${esc(k==='none'?'OHNE TERMIN':shoppingDayLabel(k).toUpperCase())}</div><div class="list">${groups.get(k).map(itemHtml).join('')}</div></section>`).join('');
-  })()}
-  </details>
-  <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav></main>`;
+    <header>
+      <div><div class="eyebrow">FESTER RHYTHMUS · MI + FR</div><h1>Einkaufsliste</h1></div>
+      <div class="actions"><button class="icon" onclick="renderShopping()">↻</button><button class="icon" onclick="logout()">⇥</button></div>
+    </header>
+
+    <div class="eyebrow" style="margin:10px 4px 6px">FREITAG 04.09.</div>
+    <section class="stats">
+      <div><b>${buyOpen}</b><span>zu kaufen</span></div>
+      <div><b>${checkOpen}</b><span>Vorrat prüfen</span></div>
+      <div><b>${done}</b><span>erledigt</span></div>
+    </section>
+
+    <section class="notice" style="margin-bottom:12px;background:#fff8e8;border-color:#ead39a">
+      <div><b>Verbindliche Liste für morgen</b><br>
+      <span class="muted">Deckt Freitagabend bis Dienstag inklusive Frühstück ab. Freitagabend seid ihr im Restaurant. Die Biokiste vom Montag ist bereits berücksichtigt.</span></div>
+    </section>
+
+    <section class="notice" style="margin-bottom:12px;background:#f6f1e6;border-color:#dfd4bb">
+      <div><b>Biokiste 07.09. · bestellt</b><br><span class="muted">${confirmedBioBox0907.join(' · ')}</span></div>
+    </section>
+
+    <section style="margin-top:16px">
+      <div class="eyebrow" style="margin:0 4px 8px">ZU KAUFEN</div>
+      <div class="list">${fridayShopping0409.map(row).join('')}</div>
+    </section>
+
+    <section style="margin-top:18px">
+      <div class="eyebrow" style="margin:0 4px 8px">VORRAT / ALTERNATIVE</div>
+      <div class="list">${fridayCheck0409.map(row).join('')}</div>
+    </section>
+
+    <nav class="bottom">
+      <span onclick="activeTab='today';renderApp()">Heute</span>
+      <span onclick="activeTab='plan';renderApp()">Plan</span>
+      <span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span>
+      <span onclick="activeTab='inventory';loadInventory()">Vorrat</span>
+      <b onclick="activeTab='shopping';renderApp()">Einkauf</b>
+    </nav>
+  </main>`;
 }
 
 function renderApp(){
