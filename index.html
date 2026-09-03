@@ -1621,6 +1621,40 @@ const confirmedBioBox0907 = [
   '1 kg Tomaten rund','0,5 kg Aubergine','1 Blumenkohl','2 Bund Lauchzwiebeln','0,5 kg Möhren','0,5 kg Zucchini'
 ];
 
+const fridayShopping0409 = [
+  {id:'hack',name:'Hackfleisch',qty:'1 kg kaufen',why:'750 g für Hackbällchen pikant (So) · Rest bleibt im Vorrat'},
+  {id:'zucchini',name:'Zucchini',qty:'ca. 600 g',why:'für Zucchini-Pilz-Frittata am Samstag · die Biokiste kommt erst Montag'},
+  {id:'pilze',name:'Pilze / Champignons',qty:'ca. 600 g',why:'300 g Frittata (Sa) + 300 g Kartoffelpfanne (Di)'},
+  {id:'eier',name:'Eier',qty:'20 Stück',why:'12 für Frittata + 12 für Kartoffelpfanne · 5 Stück sind derzeit im Vorrat erfasst'},
+  {id:'kartoffeln',name:'Kartoffeln',qty:'1 kg',why:'900 g für Kartoffelpfanne (Di) · nicht in der Biokiste 07.09.'},
+  {id:'bohnen',name:'Grüne Bohnen',qty:'ca. 750 g',why:'für 6 Portionen Blumenkohl-Curry am Montag'},
+  {id:'blumenkohl',name:'Blumenkohl',qty:'1 großer zusätzlich',why:'Curry braucht hochgerechnet ca. 1,5 kg; Montag kommt zusätzlich 1 Blumenkohl aus der Biokiste'},
+  {id:'zwiebeln',name:'Zwiebeln',qty:'1 kg Netz',why:'Hackbällchen + Blumenkohl-Curry; vorhandene rote Zwiebel zuerst nutzen'},
+  {id:'knoblauch',name:'Knoblauch',qty:'1 Knolle',why:'Frittata + Hackbällchen'},
+  {id:'kaese',name:'Würziger Käse',qty:'1 Packung (mind. 100 g)',why:'90 g für Frittata'},
+  {id:'tomatenDose',name:'Stückige Tomaten',qty:'2 × 400-g-Dose',why:'600 g für Hackbällchen pikant'},
+  {id:'kochsahne',name:'Kochsahne 15 %',qty:'1 Becher / Packung ca. 200 ml',why:'150 ml für Hackbällchen'},
+  {id:'kokos',name:'Kokosmilch',qty:'1 Dose ca. 400 ml',why:'300 ml für Blumenkohl-Curry'},
+  {id:'mandeln',name:'Mandeln, gemahlen',qty:'1 kleine Packung',why:'6 EL für Blumenkohl-Curry'},
+  {id:'cashews',name:'Cashewkerne',qty:'1 kleine Packung',why:'6 EL für Blumenkohl-Curry'},
+  {id:'minze',name:'Minze, frisch',qty:'1 Bund / Topf',why:'für Blumenkohl-Curry'},
+  {id:'oliven',name:'Schwarze Oliven, entsteint',qty:'1 Glas',why:'45 g für Frittata'},
+  {id:'getrockneteTomaten',name:'Getrocknete Tomaten ohne Öl',qty:'1 kleine Packung',why:'für Frittata'},
+  {id:'quark',name:'Quark 20 %',qty:'mind. 500 g',why:'Samstag zum Mitnehmen + Quarkfrühstück Mo/Di; vorhandener Bestand wird zuerst verbraucht'},
+  {id:'beeren',name:'Beeren (frisch oder TK)',qty:'ca. 750 g–1 kg',why:'Samstag zum Mitnehmen + Quarkfrühstück Mo/Di; aktueller TK-Bestand ca. 450 g'}
+];
+const fridayCheck0409 = [
+  {id:'paprika',name:'Paprika prüfen',qty:'Bedarf bis Dienstag: ca. 4½ Stück',why:'2 rote + 5 grüne/Spitzpaprika sind in der App erfasst. Wenn der echte Bestand stimmt, nichts kaufen.'}
+];
+function fridayManualState(){try{return JSON.parse(localStorage.getItem('kochen_friday_0409_v1')||'{}')}catch(e){return {}}}
+function toggleFridayManual(id){const st=fridayManualState();st[id]=!st[id];localStorage.setItem('kochen_friday_0409_v1',JSON.stringify(st));renderShopping()}
+function fridayManualHtml(){
+  const st=fridayManualState();
+  const row=x=>`<article class="item ${st[x.id]?'done':''}"><button class="check" onclick="toggleFridayManual('${x.id}')">${st[x.id]?'✓':''}</button><div class="body"><div class="top"><h2>${esc(x.name)}</h2><span class="pill">${esc(x.qty)}</span></div><p class="desc">${esc(x.why)}</p></div></article>`;
+  return `<section style="margin:14px 0 18px"><div class="eyebrow" style="margin:0 4px 8px">MORGEN · FREITAG 04.09. · VERBINDLICHE LISTE</div><section class="notice" style="margin-bottom:10px;background:#fff8e8;border-color:#ead39a"><div><b>Deckt Freitagabend bis Dienstag.</b><br><span class="muted">Freitagabend seid ihr im Restaurant – dafür ist kein Koch-Einkauf nötig. Die Liste versorgt Samstagabend bis Dienstag und berücksichtigt die Biokiste am Montag.</span></div></section><div class="list">${fridayShopping0409.map(row).join('')}</div><div class="eyebrow" style="margin:16px 4px 8px">VOR DEM LOSFAHREN KURZ PRÜFEN</div><div class="list">${fridayCheck0409.map(row).join('')}</div></section>`;
+}
+
+
 function renderShopping(){
   const vis=rows.filter(r=>{
     const name=(r.foods?.name||'').toLowerCase();
@@ -1645,6 +1679,7 @@ function renderShopping(){
   <section class="notice" style="margin-bottom:12px;background:#f6f1e6;border-color:#dfd4bb">
     <div><b>Biokiste 07.09. · bestellt</b><br><span class="muted">${confirmedBioBox0907.join(' · ')}</span></div>
   </section>
+  ${fridayManualHtml()}
   <section class="notice" style="margin-bottom:12px;background:#edf3e9;border-color:#d7e2d0">
     <div><b>Smart-Abgleich aktiv</b><br><span class="muted">Der Bedarf wird nach Datum chronologisch reserviert: Vorrat → bereits gekauft → rechtzeitige Lieferung → Einkauf. Derselbe Bestand kann dadurch nicht mehr für zwei spätere Gerichte gleichzeitig verwendet werden. ${smartSummary?`${smartSummary.reservations||0} Zutatenbedarfe geprüft · ${smartSummary.auto_shopping_rows||0} automatische Einkaufsposten.`:'Beim Laden wird automatisch neu gerechnet.'}</span></div>
   </section>
