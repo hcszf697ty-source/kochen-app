@@ -1514,7 +1514,7 @@ function renderRecipes(){
           <p class="desc">${r.meta}</p>
           ${timeMetaFor(r.title)?`<div class="meta"><b>Zeit:</b> ${timeMetaFor(r.title)}</div>`:''}
           ${r.adaptation?`<div class="meta"><b>Anpassung:</b> ${r.adaptation}</div>`:''}
-          <div class="meta">Rezept öffnen ›</div>
+          <div class="meta">Rezept öffnen › ${typeof tm6Cook!=='undefined' && tm6Cook[key]?'· Kochmodus vorhanden':''}</div>
         </div>
       </article>`).join('')}
   </section>
