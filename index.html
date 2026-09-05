@@ -1726,6 +1726,26 @@ const fridayShopping0409 = [
   {id:'omelettgemuese',name:'Champignons + Tomaten fürs Omelett',qty:'Bestand prüfen',why:'nur noch für das geplante Sonntags-Omelett'},
   {id:'omeletthuette',name:'Hüttenkäse fürs Omelett',qty:'Bestand prüfen',why:'für das Pikante Omelett heute und am Sonntag; vorhandene Becher zuerst verwenden'}
 ];
+const wednesdayShopping0909 = [
+  {id:'w_lachs',name:'Lachsfilet',qty:'Gesamtbedarf ca. 1,05 kg',why:'Mi 09.09. · S. 49 · 7 Portionen. TK-Lachs zuerst verwenden; nur die Differenz kaufen.'},
+  {id:'w_kartoffeln',name:'Kartoffeln',qty:'ca. 875 g',why:'Mi 09.09. · S. 49 · 7 Portionen'},
+  {id:'w_kohlrabi',name:'Kohlrabi',qty:'Gesamtbedarf ca. 525 g',why:'Mi 09.09. · S. 49 · 7 Portionen. 1 Kohlrabi ist im Vorrat; nur fehlende Menge kaufen.'},
+  {id:'w_kochsahne',name:'Kochsahne 15 %',qty:'mind. 1 Becher',why:'Mi 09.09. · S. 49 · Bedarf ca. 5¼ EL'},
+  {id:'w_schwein',name:'Schweinefilet',qty:'ca. 1,05 kg',why:'Do 10.09. · S. 32 · 7 Portionen'},
+  {id:'w_bambus',name:'Bambussprossen',qty:'ca. 525 g Abtropfgewicht',why:'Do 10.09. · S. 32 · 7 Portionen'},
+  {id:'w_pilze',name:'Pilze',qty:'ca. 175 g',why:'Do 10.09. · S. 32 · 7 Portionen'},
+  {id:'w_sesamoel',name:'Sesamöl',qty:'1 Flasche, falls nicht vorhanden',why:'Do 10.09. · Marinade · Bedarf ca. 1¾ EL'},
+  {id:'w_soja',name:'Glutenfreie Sojasoße',qty:'1 Flasche, falls nicht vorhanden',why:'Do 10.09. · S. 32 · Gesamtbedarf ca. 10½ EL'},
+  {id:'w_ketchup',name:'Glutenfreier Tomatenketchup',qty:'1 Flasche, falls nicht vorhanden',why:'Do 10.09. · S. 32 · Bedarf ca. 7 EL'},
+  {id:'w_staerke',name:'Speisestärke',qty:'1 Packung, falls nicht vorhanden',why:'Do 10.09. · Marinade · Bedarf ca. 1¾ EL'}
+];
+const wednesdayCheck0909 = [
+  {id:'w_moehren',name:'Möhren/Karotten',qty:'Mi ca. 350 g + Do ca. 350 g',why:'Montag kommen 0,5 kg Möhren in der Biokiste; zusätzlich sind 4 Möhren im Vorrat. Vor dem Einkauf Restmenge prüfen.'},
+  {id:'w_lauch',name:'Lauch/Porree',qty:'Do ca. 350 g',why:'2 Stangen sind aktuell im Vorrat. Nur kaufen, wenn der Rest bis Donnerstag nicht reicht.'},
+  {id:'w_sesam',name:'Sesamsaat',qty:'Do ca. 35 g',why:'Bestand prüfen.'},
+  {id:'w_bruehe',name:'Glutenfreie Brühe',qty:'Mi ca. 1,225 l',why:'Für Kartoffeln und Gemüse beim Lachs. Laut bisherigem Vorrat vorhanden; Menge kurz prüfen.'}
+];
+
 const fridayCheck0409 = [
   {id:'paprika',name:'Paprika',qty:'0 rote · 3 Spitzpaprika im Vorrat',why:'Für Hackbällchen pikant werden 3 Paprika benötigt. Deine 3 Spitzpaprika decken den Bedarf, wenn du sie dafür verwenden möchtest. Sonst 3 rote Paprika kaufen.'}
 ];
@@ -1740,58 +1760,35 @@ function fridayManualHtml(){
 
 function renderShopping(){
   const st=fridayManualState();
-  const allItems=[...fridayShopping0409,...fridayCheck0409];
+  const fridayAll=[...fridayShopping0409,...fridayCheck0409];
   const buyOpen=fridayShopping0409.filter(x=>!st[x.id]).length;
   const checkOpen=fridayCheck0409.filter(x=>!st[x.id]).length;
-  const done=allItems.filter(x=>st[x.id]).length;
-
+  const done=fridayAll.filter(x=>st[x.id]).length;
   const row=x=>`<article class="item ${st[x.id]?'done':''}">
     <button class="check" onclick="toggleFridayManual('${x.id}')">${st[x.id]?'✓':''}</button>
-    <div class="body">
-      <div class="top"><h2>${esc(x.name)}</h2><span class="pill">${esc(x.qty)}</span></div>
-      <p class="desc">${esc(x.why)}</p>
-    </div>
+    <div class="body"><div class="top"><h2>${esc(x.name)}</h2><span class="pill">${esc(x.qty)}</span></div><p class="desc">${esc(x.why)}</p></div>
   </article>`;
-
   document.getElementById('app').innerHTML=`<main class="shell">
-    <header>
-      <div><div class="eyebrow">FESTER RHYTHMUS · MI + FR</div><h1>Einkaufsliste</h1></div>
-      <div class="actions"><button class="icon" onclick="renderShopping()">↻</button><button class="icon" onclick="logout()">⇥</button></div>
-    </header>
+    <header><div><div class="eyebrow">FESTER RHYTHMUS · MI + FR</div><h1>Einkaufsliste</h1></div>
+    <div class="actions"><button class="icon" onclick="renderShopping()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
-    <div class="eyebrow" style="margin:10px 4px 6px">FREITAG 04.09.</div>
-    <section class="stats">
-      <div><b>${buyOpen}</b><span>zu kaufen</span></div>
-      <div><b>${checkOpen}</b><span>Vorrat prüfen</span></div>
-      <div><b>${done}</b><span>erledigt</span></div>
-    </section>
-
+    <div class="eyebrow" style="margin:10px 4px 6px">MITTWOCH 09.09. · NÄCHSTER EINKAUF</div>
     <section class="notice" style="margin-bottom:12px;background:#fff8e8;border-color:#ead39a">
-      <div><b>Verbindliche Liste für morgen</b><br>
-      <span class="muted">Deckt Freitagabend bis Dienstag inklusive Frühstück ab. Freitagabend seid ihr im Restaurant. Die Biokiste vom Montag ist bereits berücksichtigt.</span></div>
+      <div><b>Für Mittwoch + Donnerstag · jeweils 5 Personen</b><br>
+      <span class="muted">Mittwoch Lachs S. 49, Donnerstag Schweinefilet S. 32. Je Abend werden 5 Portionen gegessen und 2 Lunchportionen zurückgestellt → jeweils 7 Portionen berechnet. Die Biokiste vom Montag und der aktuelle Vorrat sind berücksichtigt.</span></div>
     </section>
-
     <section class="notice" style="margin-bottom:12px;background:#f6f1e6;border-color:#dfd4bb">
-      <div><b>Biokiste 07.09. · bestellt</b><br><span class="muted">${confirmedBioBox0907.join(' · ')}</span></div>
+      <div><b>Biokiste 07.09. · bereits bestellt</b><br><span class="muted">${confirmedBioBox0907.join(' · ')}</span></div>
     </section>
+    <section style="margin-top:16px"><div class="eyebrow" style="margin:0 4px 8px">ZU KAUFEN / FEHLMENGE</div><div class="list">${wednesdayShopping0909.map(row).join('')}</div></section>
+    <section style="margin-top:18px"><div class="eyebrow" style="margin:0 4px 8px">VORRAT NACH BIOKISTE PRÜFEN</div><div class="list">${wednesdayCheck0909.map(row).join('')}</div></section>
 
-    <section style="margin-top:16px">
-      <div class="eyebrow" style="margin:0 4px 8px">ZU KAUFEN</div>
-      <div class="list">${fridayShopping0409.map(row).join('')}</div>
-    </section>
+    <details style="margin-top:22px"><summary class="notice"><b>Freitagliste 04.09. anzeigen</b> · ${buyOpen} offen · ${done} erledigt</summary>
+      <section style="margin-top:12px"><div class="list">${fridayShopping0409.map(row).join('')}</div>
+      <div class="eyebrow" style="margin:16px 4px 8px">VORRAT / ALTERNATIVE</div><div class="list">${fridayCheck0409.map(row).join('')}</div></section>
+    </details>
 
-    <section style="margin-top:18px">
-      <div class="eyebrow" style="margin:0 4px 8px">VORRAT / ALTERNATIVE</div>
-      <div class="list">${fridayCheck0409.map(row).join('')}</div>
-    </section>
-
-    <nav class="bottom">
-      <span onclick="activeTab='today';renderApp()">Heute</span>
-      <span onclick="activeTab='plan';renderApp()">Plan</span>
-      <span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span>
-      <span onclick="activeTab='inventory';loadInventory()">Vorrat</span>
-      <b onclick="activeTab='shopping';renderApp()">Einkauf</b>
-    </nav>
+    <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><b onclick="activeTab='shopping';renderApp()">Einkauf</b></nav>
   </main>`;
 }
 
