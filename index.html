@@ -225,7 +225,14 @@ const recipeNutrition={
   'Hähnchen-Sesam-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
   'Hähnchen mit Sesamkruste auf Tomaten-Gurken-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
   'Auberginen-Hack-Auflauf':{kcal:486,protein:48,carbs:20,source:'Kochbuch'},
-  'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'}
+  'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'},
+  'Hackbällchen pikant':{kcal:477,protein:42,carbs:9,source:'Kochbuch'},
+  'Zucchini-Pilz-Frittata':{kcal:296,protein:21,carbs:20,source:'Kochbuch'},
+  'Blumenkohl-Curry mit Bohnen':{kcal:402,protein:15,carbs:34,source:'Kochbuch'},
+  'Kartoffelpfanne mit Spiegelei':{kcal:397,protein:19,carbs:23,source:'Kochbuch'},
+  'Auberginen-Pizza mit Mozzarella':{kcal:366,protein:38,carbs:15,source:'Kochbuch'},
+  'Hähnchenbrust mit gegrillter Paprika & Salsa-Soße':{kcal:537,protein:66,carbs:16,source:'Kochbuch'},
+  'Schlemmerfilet auf buntem Gemüse':{kcal:346,protein:38,carbs:17,source:'Kochbuch'}
 };
 
 const recipeDefaultCooked={
@@ -457,7 +464,7 @@ const weekPlan = {
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'Ulrike + Marcel: Quark + Beeren in Box · Kinder: Hüttenkäse mit Gemüse zum Mitnehmen'],
       ['Mittag',recipeLink('Hackbällchen pikant','hackbaellchen'),'Heute spontan zu Hause · Kochbuch S. 43'],
-      ['Abend','Zucchini-Pilz-Frittata','Familienabendessen + 2 Lunchportionen für Sonntag']
+      ['Abend',recipeLink('Zucchini-Pilz-Frittata','frittata'),'Familienabendessen + 2 Lunchportionen für Sonntag']
     ],
     note:'Samstagfrüh seid ihr außer Haus; Quark mit Beeren wird mitgenommen. Heute Mittag seid ihr spontan zu Hause: Hackbällchen pikant, S. 43. Abends startet die Meal-Prep-Kette mit der Zucchini-Pilz-Frittata; zwei Portionen für Ulrike und Marcel für Sonntagmittag zurückstellen.',
     preps:[]
@@ -466,8 +473,8 @@ const weekPlan = {
     label:'So · 06.09.', phase:'Turbo',
     meals:[
       ['Frühstück','Pikantes Omelett','Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Zucchini-Pilz-Frittata','vom Vorabend'],
-      ['Abend','Hackbällchen pikant','Familienabendessen + 2 Lunchportionen für Montag']
+      ['Mittag',recipeLink('Zucchini-Pilz-Frittata','frittata'),'vom Vorabend'],
+      ['Abend',recipeLink('Hackbällchen pikant','hackbaellchen'),'Familienabendessen + 2 Lunchportionen für Montag']
     ],
     note:'Die Montag-Biokiste kommt erst morgen; Zutaten für heute gehören zum normalen Einkauf/Vorrat.',
     preps:[]
@@ -476,8 +483,8 @@ const weekPlan = {
     label:'Mo · 07.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Hackbällchen pikant','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Blumenkohl-Curry mit Bohnen','Familienabendessen + 2 Lunchportionen für Dienstag']
+      ['Mittag außer Haus',recipeLink('Hackbällchen pikant','hackbaellchen'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Blumenkohl-Curry mit Bohnen','curry'),'Familienabendessen + 2 Lunchportionen für Dienstag']
     ],
     note:'Biokiste kommt heute. Ab jetzt Gemüse aus der Lieferung zuerst nutzen.',
     preps:[]
@@ -486,8 +493,8 @@ const weekPlan = {
     label:'Di · 08.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Blumenkohl-Curry mit Bohnen','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Kartoffelpfanne mit Spiegelei','Familienabendessen + 2 Lunchportionen für Mittwoch']
+      ['Mittag außer Haus',recipeLink('Blumenkohl-Curry mit Bohnen','curry'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Kartoffelpfanne mit Spiegelei','kartoffelpfanne'),'Familienabendessen + 2 Lunchportionen für Mittwoch']
     ],
     note:'Meal Prep: zwei Portionen für Mittwoch direkt abfüllen.',
     preps:[]
@@ -496,28 +503,28 @@ const weekPlan = {
     label:'Mi · 09.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Kartoffelpfanne mit Spiegelei','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Auberginen-Pizza mit Mozzarella','Familienabendessen + 2 Lunchportionen für Donnerstag']
+      ['Mittag außer Haus',recipeLink('Kartoffelpfanne mit Spiegelei','kartoffelpfanne'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse','lachs'),'5 Personen am Tisch + 2 Lunchportionen für Donnerstag']
     ],
-    note:'Abwechslungsreiche Turbo-Woche ohne Wiederholung der Hauptgerichte aus der Vorwoche.',
+    note:'Planänderung: Statt Auberginen-Pizza gibt es Lachs mit scharfem Kohlrabi-Karotten-Gemüse. Insgesamt 7 Portionen kochen: 5 zum Abendessen + 2 für Ulrike und Marcel am Donnerstagmittag.',
     preps:[]
   },
   '2026-09-10':{
     label:'Do · 10.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Auberginen-Pizza mit Mozzarella','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Eingelegtes Schweinefilet mit buntem Gemüse','Familienabendessen + 2 Lunchportionen für Freitag']
+      ['Mittag außer Haus',recipeLink('Lachs mit scharfem Kohlrabi-Karotten-Gemüse','lachs'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Eingelegtes Schweinefilet mit süßsaurem Gemüse','schweinefilet'),'5 Personen am Tisch + 2 Lunchportionen für Freitag']
     ],
-    note:'Zwei Lunchportionen für Freitag zurückstellen.',
+    note:'Auch Donnerstagabend seid ihr 5 Personen. Insgesamt 7 Portionen kochen: 5 zum Abendessen + 2 Lunchportionen für Freitag.',
     preps:[]
   },
   '2026-09-11':{
     label:'Fr · 11.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Eingelegtes Schweinefilet mit buntem Gemüse','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Linsensuppe mit Feta','Familienabendessen + 2 Lunchportionen für Samstag']
+      ['Mittag außer Haus',recipeLink('Eingelegtes Schweinefilet mit süßsaurem Gemüse','schweinefilet'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Linsensuppe mit Feta','linsensuppe'),'Familienabendessen + 2 Lunchportionen für Samstag']
     ],
     note:'Normaler Meal-Prep-Tag: zwei Portionen für Samstagmittag zurückstellen.',
     preps:[]
@@ -526,8 +533,8 @@ const weekPlan = {
     label:'Sa · 12.09.', phase:'Turbo',
     meals:[
       ['Frühstück','Hüttenkäse mit Gemüse','Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Linsensuppe mit Feta','vom Vorabend'],
-      ['Abend','Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','Familienabendessen + 2 Lunchportionen für Sonntag']
+      ['Mittag',recipeLink('Linsensuppe mit Feta','linsensuppe'),'vom Vorabend'],
+      ['Abend',recipeLink('Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','haehnchen_salsa'),'Familienabendessen + 2 Lunchportionen für Sonntag']
     ],
     note:'Samstag ist wieder als normaler Zuhause-Tag eingeplant. Am Wochenende kein Quark mit Beeren.',
     preps:[]
@@ -536,8 +543,8 @@ const weekPlan = {
     label:'So · 13.09.', phase:'Turbo',
     meals:[
       ['Frühstück','Gebratener Hüttenkäse','Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','vom Vorabend'],
-      ['Abend','Schlemmerfilet auf buntem Gemüse','Familienabendessen']
+      ['Mittag',recipeLink('Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','haehnchen_salsa'),'vom Vorabend'],
+      ['Abend',recipeLink('Schlemmerfilet auf buntem Gemüse','schlemmerfilet'),'Familienabendessen']
     ],
     note:'Kichererbsen-Salat ist für diese Woche nicht eingeplant.',
     preps:[]
@@ -829,25 +836,18 @@ const recipeData = {
     note: 'Kochbuch S. 53 · 427 kcal · 24 g Protein · 27 g KH pro Portion.'
   },
   hackbaellchen: {
-    title: 'Hackbällchen pikant',
-    phase: 'Turbo',
-    meta: 'S. 43 · 4 Portionen',
-    ingredients: [
-      '500 g Hackfleisch',
-      'insgesamt 3 Zwiebeln',
-      '2 Paprika',
-      'Quark',
-      'glutenfreie Semmelbrösel',
-      'Senf',
-      'Knoblauch',
-      'Ingwer',
-      '400 g stückige Tomaten',
-      '100 ml Kochsahne',
-      'Gewürze laut Kochbuch'
-    ],
-    adaptation: 'Glutenfrei: glutenfreie Semmelbrösel verwenden.',
-    note: 'Kochbuch S. 43 · 4 Portionen · 477 kcal · 42 g Protein pro Portion. Bei Zutaten ohne hier gespeicherte Mengenangabe gilt die Originalmenge auf S. 43.'
-  }
+    title:'Hackbällchen pikant', phase:'Turbo', meta:'S. 43 · 4 Portionen',
+    ingredients:['500 g Hackfleisch','1 Zwiebel','½ Paprikaschote, in sehr feine Würfel geschnitten','2 EL Quark','3–4 EL Vollkornsemmelbrösel','1 EL mittelscharfer Senf','Salz','1 TL Curry','1 Msp. Chilipulver','2–3 Spritzer Tabasco','2 Zwiebeln','1 Knoblauchzehe','1 EL Olivenöl','1½ Paprikaschoten','1 EL geriebener Ingwer','1 EL Tomatenmark, scharf','1 EL Currypulver','400 g stückige Tomaten aus der Dose','100 ml Kochsahne 15 %','Salz, Cayennepfeffer','1 TL indisches Currygewürz'],
+    adaptation:'Glutenfrei: 3–4 EL Vollkornsemmelbrösel durch glutenfreie Semmelbrösel ersetzen.', note:'Originalrezept Kochbuch S. 43 · 4 Portionen · 477 kcal · 42 g Protein · 9 g Kohlenhydrate.'
+  },
+  frittata:{title:'Zucchini-Pilz-Frittata',phase:'Turbo',meta:'S. 57 · 4 Portionen',ingredients:['400 g kleine Zucchini','200 g Seitlinge oder Steinpilze','1 kleine Zwiebel','3 Knoblauchzehen','3 getrocknete Tomaten ohne Öl','30 g entsteinte schwarze Oliven','2 EL Olivenöl','1 Thymianzweig','8 Eier','60 g würziger Käse','Salz, Pfeffer aus der Mühle'],adaptation:'',note:'Originalrezept Kochbuch S. 57 · 4 Portionen · 296 kcal · 21 g Protein · 20 g Kohlenhydrate.'},
+  curry:{title:'Blumenkohl-Curry mit Bohnen',phase:'Turbo',meta:'S. 59 · 1 Portion',ingredients:['1 Karotte','250 g Blumenkohl','50 ml Gemüsebrühe','125 g grüne Bohnen, Konserve','½ Zwiebel','1 EL Rapsöl','50 ml Kokosmilch, Konserve','1 TL Zitronenfruchtsaft','1 EL Mandeln, gemahlen','1 TL Currypulver','Salz','Pfeffer','Cayennepfeffer','Cumin','1 EL Cashewkerne','Minze, frisch'],adaptation:'Glutenfrei: Gemüsebrühe glutenfrei verwenden.',note:'Originalrezept Kochbuch S. 59 · 1 Portion · 402 kcal · 15 g Protein · 34 g Kohlenhydrate.'},
+  kartoffelpfanne:{title:'Kartoffelpfanne mit Spiegelei',phase:'Turbo',meta:'S. 48 · 4 Portionen',ingredients:['600 g kleine junge Kartoffeln','1 EL Olivenöl','1 rote Paprika','1 kleine Zucchini','200 g Champignons','3 Frühlingszwiebeln','1 EL Olivenöl','2 EL Gartenkräuter','8 Eier','2 EL Rapsöl','Salz, Pfeffer, Paprikapulver','Schnittlauchhalme'],adaptation:'',note:'Originalrezept Kochbuch S. 48 · 4 Portionen · 397 kcal · 19 g Protein · 23 g Kohlenhydrate.'},
+  auberginenpizza:{title:'Auberginen-Pizza mit Mozzarella',phase:'Turbo',meta:'S. 61 · 1 Portion',ingredients:['1 Aubergine','etwas Olivenöl','1 Knoblauchzehe','15 ml Gemüsebrühe','150 g gehackte Tomaten, Konserve','150 g Mozzarella 8,5 % Fett','italienische Kräuter','Oregano','1 EL Basilikum, gehackt','Salz','Pfeffer'],adaptation:'Glutenfrei: Gemüsebrühe glutenfrei verwenden.',note:'Originalrezept Kochbuch S. 61 · 1 Portion · 366 kcal · 38 g Protein · 15 g Kohlenhydrate.'},
+  schweinefilet:{title:'Eingelegtes Schweinefilet mit süßsaurem Gemüse',phase:'Turbo',meta:'S. 32 · 4 Portionen',ingredients:['600 g Schweinefilet, in Scheiben geschnitten','3 EL Sojasoße','1 EL Speisestärke','1 EL Sesamöl','2 EL Öl zum Braten','200 g Karotten','200 g Lauch','250 ml Wasser','1 TL Zucker','2 EL Essig','300 g Bambussprossen, Konserve','100 g Pilze','4 EL Tomatenketchup','3 EL Sojasoße','Salz, Pfeffer','Schnittlauch','20 g Sesamsaat'],adaptation:'Glutenfrei: Sojasoße und Tomatenketchup glutenfrei verwenden.',note:'Originalrezept Kochbuch S. 32 · 4 Portionen.'},
+  linsensuppe:{title:'Linsensuppe mit Feta',phase:'Turbo',meta:'S. 38 · 4 Portionen',ingredients:['150 g braune Linsen','1 EL Rapsöl','100 g gewürfelter Rohschinken, mager','1 Zwiebel','2 Knoblauchzehen','1 EL geriebener Ingwer','180 g Karotten','150 g Kartoffeln','Salz, Pfeffer','je ½ TL Curry und Paprikapulver','800 ml Würzer-Brühe','3 Frühlingszwiebeln','200 g Feta-Würfel'],adaptation:'Glutenfrei: Würzer-Brühe glutenfrei verwenden.',note:'Originalrezept Kochbuch S. 38 · 4 Portionen.'},
+  haehnchen_salsa:{title:'Hähnchenbrust mit gegrillter Paprika & Salsa-Soße',phase:'Turbo',meta:'S. 45 · 1 Portion',ingredients:['1 rote Paprika','½ gelbe Paprika','½ grüne Paprika','250 g Hähnchenbrustfilet','Salz, Pfeffer','2 TL Rapsöl','Petersilie, frisch','2 Tomaten','1 Knoblauchzehe','1 Schalotte','1 TL Rapsöl','½ milde Chilischote','1 TL Tomatenmark','1 TL Honig','Salz','Pfeffer','Oregano'],adaptation:'',note:'Originalrezept Kochbuch S. 45 · 1 Portion · 537 kcal · 66 g Protein · 16 g Kohlenhydrate.'},
+  schlemmerfilet:{title:'Schlemmerfilet auf buntem Gemüse',phase:'Turbo',meta:'S. 50 · 4 Portionen',ingredients:['600 g Kabeljaufilet, frisch oder TK','Salz, Pfeffer','4 TL grobkörniger Senf','etwas Öl für die Form','150 ml saure Sahne 10 %','100 ml fettreduzierte Kochsahne 15 %','2 Eiweiß','50 g Vollkornsemmelbrösel','1 Packung TK-Gartenkräuter','50 g geriebener Käse','Salz, Pfeffer','Figurscout Würzer-Pulver','1 Zwiebel','1 EL Olivenöl','500 g Zucchini','3 rote Paprika','2 Frühlingszwiebeln','300 g Kirschtomaten','Würzer-Pulver','4 Thymianzweige'],adaptation:'Glutenfrei: 50 g Vollkornsemmelbrösel durch glutenfreie Semmelbrösel ersetzen; Würzer-Pulver glutenfrei verwenden.',note:'Originalrezept Kochbuch S. 50 · 4 Portionen · 346 kcal · 38 g Protein · 17 g Kohlenhydrate.'}
 };
 
 
@@ -942,19 +942,12 @@ const tm6Cook = {
       {title:'Anrichten',needs:['Salat','Dressing','Sesam-Hähnchen'],text:'Salat mit Dressing anrichten und das Hähnchen darauf verteilen. Für die Lunchbox Dressing möglichst separat mitnehmen.',setting:'Fertig',book:'Kochbuchgericht vollständig.'}
     ]
   },
-  lachs: {
-    title:'Lachs mit scharfem Kohlrabi-Karotten-Gemüse',
-    adaptation:'',
-    defaultYield:4,
-    steps:[
-      {title:'Kartoffeln vorbereiten',needs:['500 g Kartoffeln','400 ml glutenfreie Gemüsebrühe'],text:'Kartoffeln vorbereiten und in der Brühe garen.',setting:'Topf',book:'Kochbuchbestandteile unverändert; Garzeit nach Kartoffelgröße.'},
-      {title:'Gemüse vorbereiten',needs:['300 g Kohlrabi','200 g Karotten'],text:'Kohlrabi und Karotten schälen und in gleichmäßige Stücke schneiden.',setting:'Vorbereitung',book:'Entspricht dem Kochbuch.'},
-      {title:'Gemüse garen',needs:['300 ml glutenfreie Gemüsebrühe','1 TL Currypulver','1 Prise Cayennepfeffer','Kohlrabi und Karotten'],text:'Gemüse mit Brühe, Curry und Cayenne bissfest garen.',setting:'Topf / TM6',book:'Kochbuch: scharf gewürztes Kohlrabi-Karotten-Gemüse.'},
-      {title:'Gemüse vollenden',needs:['3 EL Kochsahne 15 %','1 EL Petersilie','20 Schnittlauchhalme'],text:'Kochsahne und Kräuter unter das Gemüse geben und abschmecken.',setting:'Kurz erwärmen',book:'Entspricht dem Abschluss des Gemüseanteils.'},
-      {title:'Lachs braten',needs:['600 g Lachs','1 EL Rapsöl','Salz','Pfeffer','Dill'],text:'Lachs würzen und in Rapsöl von beiden Seiten braten, bis er gerade gar ist.',setting:'Pfanne',book:'Kochbuch: Lachs separat braten.'},
-      {title:'Servieren',needs:['Kartoffeln','scharfes Gemüse','Lachs'],text:'Kartoffeln, Gemüse und Lachs auf vier Portionen verteilen.',setting:'Fertig',book:'1 Kochbuch-Rezeptmenge = 4 Portionen.'}
-    ]
-  },
+  lachs:{title:'Lachs mit scharfem Kohlrabi-Karotten-Gemüse',adaptation:'Glutenfrei: Würzer-Brühe glutenfrei.',defaultYield:4,steps:[
+    {title:'Kartoffeln und Lachs vorbereiten',needs:['600 g Lachsstücke','500 g Kartoffeln','400 ml glutenfreie Würzer-Brühe'],text:'Fisch waschen und trocken tupfen. Kartoffeln schälen, in gleichgroße Würfel schneiden und in 400 ml Brühe 15 Minuten garen.',setting:'Topf · 15 Min.',book:'Original Schritt 1 · S. 49.'},
+    {title:'Kohlrabi-Karotten-Gemüse',needs:['300 g Kohlrabi','200 g Karotten','300 ml glutenfreie Würzer-Brühe','1 TL Currypulver','Salz','Pfeffer','3 EL Kochsahne 15 %'],text:'Kohlrabi und Karotten in etwa pommesgroße Stifte schneiden und in 300 ml Brühe bei milder Hitze offen bissfest kochen. Mit Salz, Currypulver und Pfeffer abschmecken und 3 EL Kochsahne zugeben.',setting:'Topf · milde Hitze',book:'Original Schritt 2.'},
+    {title:'Lachs braten',needs:['600 g Lachsstücke','1 EL Rapsöl','Salz','Pfeffer','Dill'],text:'1 EL Rapsöl erhitzen. Lachs würzen und bei milder Hitze von jeder Seite etwa 3–5 Minuten anbraten, sodass er innen noch schön glasig ist. Dill darüberstreuen und nochmals wenden.',setting:'Pfanne · 3–5 Min. je Seite',book:'Original Schritt 3.'},
+    {title:'Anrichten',needs:['500 g gegarte Kartoffeln','1 EL gehackte Petersilie','Lachs','Kohlrabi-Karotten-Gemüse','20 Schnittlauchhalme'],text:'Kartoffeln salzen, mit 1 EL Petersilie bestreuen und mit Lachs und Gemüse anrichten. Mit 20 Schnittlauchhalmen garnieren.',setting:'Fertig',book:'Original Schritt 4.'}
+  ]},
   tofu: {
     title:'Sesam-Tofu auf buntem Salat',
     adaptation:'Glutenfrei: Reismehl sowie glutenfreie Soja- und Teriyaki-Soße.',
@@ -968,24 +961,73 @@ const tm6Cook = {
       {title:'Anrichten',needs:['Salat','Dressing','Sesam-Tofu'],text:'Dressing über den Salat geben und Sesam-Tofu darauf verteilen. Für die Lunchbox Dressing separat transportieren.',setting:'Fertig',book:'1 Kochbuch-Rezeptmenge = 4 Portionen.'}
     ]
   },
-  hackbaellchen: {
-    title:'Hackbällchen pikant',
-    adaptation:'Glutenfrei: glutenfreie Semmelbrösel verwenden.',
-    defaultYield:4,
-    steps:[
-      {title:'Vorbereiten',needs:['500 g Hackfleisch','Zwiebeln','Knoblauch','Ingwer','Quark','glutenfreie Semmelbrösel','Senf','Gewürze laut S. 43'],text:'Zutaten für die Hackbällchen nach S. 43 bereitstellen. Zwiebel, Knoblauch und Ingwer vorbereiten.',setting:'Vorbereitung',book:'Die Mengen, die in der App nicht numerisch hinterlegt sind, bitte direkt nach S. 43 dosieren.'},
-      {title:'Hackmasse',needs:['vorbereitete Zutaten für die Hackbällchen'],text:'Hackfleisch mit Quark, glutenfreien Semmelbröseln, Senf und den im Kochbuch vorgesehenen Würzzutaten zu einer Masse verarbeiten.',setting:'Von Hand / Schüssel',book:'Glutenfreie Anpassung: glutenfreie Semmelbrösel.'},
-      {title:'Bällchen formen',needs:['Hackmasse'],text:'Aus der Hackmasse gleichmäßige Hackbällchen formen.',setting:'Ohne TM6',book:'Kochbuch S. 43.'},
-      {title:'Hackbällchen braten',needs:['geformte Hackbällchen'],text:'Hackbällchen in einer großen Pfanne rundum anbraten.',setting:'Pfanne',book:'Nach S. 43 braten.'},
-      {title:'Pikante Sauce',needs:['restliche Zwiebeln','2 Paprika','400 g stückige Tomaten','100 ml Kochsahne','Knoblauch','Ingwer','Gewürze laut S. 43'],text:'Gemüse und Sauce nach dem Kochbuch zubereiten. Tomaten und Kochsahne zugeben und pikant abschmecken.',setting:'Pfanne',book:'Zutatenbasis nach S. 43; keine zusätzlichen Zutaten ergänzt.'},
-      {title:'Fertig garen',needs:['Hackbällchen','pikante Sauce'],text:'Hackbällchen in der Sauce fertig garen und anschließend auf 4 Portionen verteilen.',setting:'Pfanne · bis vollständig durchgegart',book:'1 Kochbuch-Rezeptmenge = 4 Portionen.'}
-    ]
-  }
+  hackbaellchen:{title:'Hackbällchen pikant',adaptation:'Glutenfrei: Vollkornsemmelbrösel durch glutenfreie Semmelbrösel ersetzen.',defaultYield:4,steps:[
+    {title:'Hackmasse',needs:['500 g Hackfleisch','1 Zwiebel','½ Paprikaschote','2 EL Quark','3–4 EL glutenfreie Semmelbrösel','1 EL mittelscharfer Senf','Salz','1 TL Curry','1 Msp. Chilipulver','2–3 Spritzer Tabasco'],text:'1 Zwiebel und ½ Paprikaschote sehr klein würfeln, zum Hackfleisch geben und mit Quark, Semmelbröseln, Senf und Gewürzen vermengen.',setting:'Originalrezept · S. 43',book:'Original Schritt 1; nur Semmelbrösel glutenfrei angepasst.'},
+    {title:'Gemüse vorbereiten',needs:['2 Zwiebeln','1 Knoblauchzehe','1½ Paprikaschoten','1 EL geriebener Ingwer'],text:'Zwiebeln und Knoblauch hacken, Paprikaschoten putzen, waschen, halbieren und in halbe Ringe schneiden, Ingwer reiben.',setting:'Originalrezept · S. 43',book:'Original Schritt 2.'},
+    {title:'Soße',needs:['1 EL Olivenöl','2 Zwiebeln','1 Knoblauchzehe','1½ Paprikaschoten','1 EL geriebener Ingwer','1 EL Tomatenmark, scharf','1 EL Currypulver','400 g stückige Tomaten aus der Dose','100 ml Kochsahne 15 %','Salz','Cayennepfeffer','1 TL indisches Currygewürz'],text:'Olivenöl erhitzen. Gemüse und Ingwer andünsten, Tomatenmark und Currypulver einrühren, mit 400 g Tomaten ablöschen. 100 ml Kochsahne zugeben und abschmecken.',setting:'Pfanne',book:'Original Schritt 3.'},
+    {title:'Hackbällchen garen',needs:['Hackmasse','pikante Soße'],text:'Hackbällchen formen, in die Soße geben und offen 20 Minuten bei milder Hitze köcheln lassen.',setting:'20 Min. · milde Hitze',book:'Original Schritt 4.'}
+  ]},
+  frittata:{title:'Zucchini-Pilz-Frittata',adaptation:'',defaultYield:4,steps:[
+    {title:'Vorbereiten',needs:['400 g kleine Zucchini','200 g Seitlinge oder Steinpilze','30 g entsteinte schwarze Oliven','3 getrocknete Tomaten ohne Öl','8 Eier'],text:'Zucchini schräg in Scheiben, Pilze längs in Scheiben schneiden. Oliven grob zerkleinern, getrocknete Tomaten klein würfeln, 8 Eier verquirlen.',setting:'Originalrezept · S. 57',book:'Original Schritt 1.'},
+    {title:'Gemüse anbraten',needs:['2 EL Olivenöl','1 kleine Zwiebel','3 Knoblauchzehen','1 Thymianzweig','Oliven','getrocknete Tomaten','Zucchini','Pilze','Salz','Pfeffer aus der Mühle'],text:'2 EL Olivenöl in einer ofenfesten Pfanne erhitzen. Zucchini, dann Pilze anbraten und beiseitestellen. Zwiebel und Knoblauch glasig dünsten, Thymian, Oliven und Tomaten zugeben, Gemüse wieder zugeben und würzen.',setting:'Ofenfeste Pfanne',book:'Original Schritt 2.'},
+    {title:'Stocken und backen',needs:['8 verquirlte Eier','60 g würziger Käse','Gemüsemischung'],text:'Eiermasse aufgießen, 60 g Käse darüberstreuen und auf der Kochstelle garen, bis die Ränder gestockt sind. Im vorgeheizten Ofen bei etwa 150 °C fertig backen.',setting:'Kochstelle → ca. 150 °C Backofen',book:'Original Schritt 3.'},
+    {title:'Ruhen',needs:['fertige Frittata'],text:'5 Minuten ruhen lassen und vorsichtig auf eine Platte stürzen.',setting:'5 Min.',book:'Original Schritt 4.'}
+  ]},
+  curry:{title:'Blumenkohl-Curry mit Bohnen',adaptation:'Glutenfrei: Gemüsebrühe glutenfrei.',defaultYield:1,steps:[
+    {title:'Gemüse vorbereiten',needs:['1 Karotte','250 g Blumenkohl'],text:'Karotte schälen, waschen und in grobe Stifte schneiden. Blumenkohl in Röschen teilen.',setting:'Originalrezept · S. 59',book:'Original Schritt 1.'},
+    {title:'Blanchieren',needs:['50 ml glutenfreie Gemüsebrühe','1 Karotte','250 g Blumenkohl'],text:'50 ml Brühe aufkochen, Gemüse 5–7 Minuten blanchieren. Brühe anschließend auffangen.',setting:'Wok-Pfanne · 5–7 Min.',book:'Original Schritt 2.'},
+    {title:'Bohnen/Zwiebel',needs:['125 g grüne Bohnen, Konserve','½ Zwiebel'],text:'Bohnen abtropfen lassen. ½ Zwiebel klein würfeln.',setting:'Originalrezept · S. 59',book:'Original Schritt 3.'},
+    {title:'Curry kochen',needs:['1 EL Rapsöl','125 g Bohnen','½ Zwiebel','50 ml Kokosmilch, Konserve','1 TL Zitronenfruchtsaft','50 ml Gemüsebrühe','1 TL Currypulver','1 EL Mandeln, gemahlen'],text:'Rapsöl erhitzen, Zwiebel und Bohnen 2–3 Minuten dünsten. Mit Kokosmilch, Zitronenfruchtsaft und Brühe ablöschen. Curry und Mandeln zugeben, weitere 2–3 Minuten köcheln.',setting:'2–3 Min. + 2–3 Min.',book:'Original Schritt 4.'},
+    {title:'Abschmecken',needs:['Salz','Pfeffer','Cayennepfeffer','Cumin','1 EL Cashewkerne','Minze, frisch'],text:'Abschmecken und mit 1 EL Cashewkernen und Minze garnieren.',setting:'Fertig',book:'Original Schritt 5.'}
+  ]},
+  kartoffelpfanne:{title:'Kartoffelpfanne mit Spiegelei',adaptation:'',defaultYield:4,steps:[
+    {title:'Kartoffeln backen',needs:['600 g kleine junge Kartoffeln','1 EL Olivenöl'],text:'Kartoffeln klein würfeln, mit 1 EL Olivenöl vermengen und bei 200 °C Ober-/Unterhitze etwa 20 Minuten backen.',setting:'200 °C · ca. 20 Min.',book:'Original Schritt 1 · S. 48.'},
+    {title:'Gemüse schneiden',needs:['1 rote Paprika','1 kleine Zucchini','200 g Champignons','3 Frühlingszwiebeln'],text:'Paprika in schmale Streifen, Zucchini würfeln, Champignons in Scheiben, Frühlingszwiebeln in Röllchen schneiden.',setting:'Originalrezept · S. 48',book:'Original Schritt 2.'},
+    {title:'Gemüse braten',needs:['1 EL Olivenöl','Gemüse','3 Frühlingszwiebeln','2 EL Gartenkräuter','600 g gebackene Kartoffeln','Salz','Pfeffer'],text:'1 EL Olivenöl erhitzen, Gemüse bei milder Hitze anbraten. Frühlingszwiebeln und 2 EL Gartenkräuter zugeben, mit Kartoffeln vermengen und würzen.',setting:'Pfanne',book:'Original Schritt 3.'},
+    {title:'Spiegeleier',needs:['8 Eier','2 EL Rapsöl','Salz','Pfeffer','Paprikapulver'],text:'8 Eier portionsweise in insgesamt 2 EL Rapsöl langsam als Spiegeleier braten und würzen.',setting:'Pfanne',book:'Original Schritt 4.'},
+    {title:'Anrichten',needs:['Gemüse-Kartoffelmischung','8 Spiegeleier','Schnittlauchhalme'],text:'Mischung verteilen, Eier darauf anrichten und mit Schnittlauch garnieren.',setting:'Fertig',book:'Original Schritt 5.'}
+  ]},
+  auberginenpizza:{title:'Auberginen-Pizza mit Mozzarella',adaptation:'Glutenfrei: Gemüsebrühe glutenfrei.',defaultYield:1,steps:[
+    {title:'Aubergine vorbereiten',needs:['1 Aubergine','etwas Olivenöl','Salz','Pfeffer','italienische Kräuter'],text:'Aubergine in ca. 1 cm dicke Scheiben schneiden, mit Olivenöl einpinseln und würzen.',setting:'Originalrezept · S. 61',book:'Original Schritt 1.'},
+    {title:'Backen',needs:['Auberginenscheiben'],text:'Bei 180 °C Ober-/Unterhitze 25 Minuten backen.',setting:'180 °C · 25 Min.',book:'Original Schritt 2.'},
+    {title:'Tomatensoße',needs:['1 Knoblauchzehe','15 ml glutenfreie Gemüsebrühe','150 g gehackte Tomaten, Konserve','italienische Kräuter','Oregano'],text:'Knoblauch würfeln. 15 ml Brühe erhitzen, Knoblauch 1 Minute dünsten. Tomaten und Kräuter zugeben und 2 Minuten köcheln.',setting:'1 Min. + 2 Min.',book:'Original Schritt 3.'},
+    {title:'Belegen',needs:['150 g Mozzarella 8,5 % Fett','Auberginenscheiben','Tomatensoße','1 EL Basilikum, gehackt'],text:'Mit Tomaten, Mozzarella und Basilikum belegen und nochmals 5 Minuten überbacken.',setting:'5 Min.',book:'Original Schritt 4.'},
+    {title:'Servieren',needs:['Auberginen-Pizzen'],text:'Anrichten und servieren.',setting:'Fertig',book:'Original Schritt 5.'}
+  ]},
+  schweinefilet:{title:'Eingelegtes Schweinefilet mit süßsaurem Gemüse',adaptation:'Glutenfrei: Sojasoße und Tomatenketchup glutenfrei.',defaultYield:4,steps:[
+    {title:'Marinieren',needs:['600 g Schweinefilet in Scheiben','3 EL glutenfreie Sojasoße','1 EL Speisestärke','1 EL Sesamöl'],text:'Sojasoße und Speisestärke mit Sesamöl verrühren und Filetscheiben mindestens 30 Minuten marinieren.',setting:'Mind. 30 Min.',book:'Original Schritt 1 · S. 32.'},
+    {title:'Gemüse vorbereiten',needs:['200 g Karotten','200 g Lauch','300 g Bambussprossen, Konserve','100 g Pilze','20 g Sesamsaat'],text:'Karotten in Stifte, Lauch in Ringe schneiden, Bambus abgießen, Pilze klein schneiden. Sesam anrösten.',setting:'Originalrezept · S. 32',book:'Original Schritt 2.'},
+    {title:'Süßsaures Gemüse',needs:['250 ml Wasser','1 TL Zucker','2 EL Essig','200 g Karotten','200 g Lauch','300 g Bambussprossen','100 g Pilze','4 EL glutenfreier Tomatenketchup','3 EL glutenfreie Sojasoße','Salz','Pfeffer'],text:'Wasser, Zucker und Essig aufkochen, Karotten 2–3 Minuten garen, Lauch zugeben. Bambus und Pilze zugeben, Ketchup unterrühren, mit Sojasoße, wenig Salz und Pfeffer abschmecken.',setting:'Karotten 2–3 Min.',book:'Original Schritt 3.'},
+    {title:'Fleisch braten',needs:['2 EL Öl zum Braten','600 g marinierte Schweinefiletscheiben'],text:'Öl erhitzen, Filetscheiben 2–3 Minuten von jeder Seite anbraten.',setting:'2–3 Min. je Seite',book:'Original Schritt 4.'},
+    {title:'Anrichten',needs:['Fleisch','süßsaures Gemüse','20 g geröstete Sesamsaat','Schnittlauch'],text:'Mit Gemüse anrichten und mit Sesam und Schnittlauch bestreuen.',setting:'Fertig',book:'Original Schritt 4.'}
+  ]},
+  linsensuppe:{title:'Linsensuppe mit Feta',adaptation:'Glutenfrei: Würzer-Brühe glutenfrei.',defaultYield:4,steps:[
+    {title:'Linsen kochen',needs:['150 g braune Linsen'],text:'Linsen waschen und in ungesalzenem Wasser etwa 20 Minuten bissfest kochen, abgießen.',setting:'Ca. 20 Min.',book:'Original Schritt 1 · S. 38.'},
+    {title:'Vorbereiten',needs:['1 Zwiebel','2 Knoblauchzehen','1 EL geriebener Ingwer','180 g Karotten','150 g Kartoffeln','3 Frühlingszwiebeln'],text:'Zwiebel und Knoblauch hacken, Ingwer reiben, Karotten und Kartoffeln klein würfeln, Frühlingszwiebeln in Ringe schneiden.',setting:'Originalrezept · S. 38',book:'Original Schritt 2.'},
+    {title:'Suppenbasis',needs:['1 EL Rapsöl','100 g gewürfelter Rohschinken, mager','1 Zwiebel','2 Knoblauchzehen','1 EL geriebener Ingwer','180 g Karotten','150 g Kartoffeln','je ½ TL Curry und Paprikapulver','800 ml glutenfreie Würzer-Brühe','Salz','Pfeffer'],text:'Rapsöl erhitzen, Rohschinken anschwitzen. Zwiebel und Knoblauch andünsten. Ingwer, Karotten, Kartoffeln und Gewürze kurz mitbraten, mit 800 ml Brühe ablöschen und 10 Minuten köcheln.',setting:'10 Min.',book:'Original Schritt 3.'},
+    {title:'Fertigstellen',needs:['150 g gegarte Linsen','3 Frühlingszwiebeln','200 g Feta-Würfel'],text:'Linsen zugeben und 5 Minuten kochen. Frühlingszwiebeln einstreuen, Suppe auf vier Teller geben und 200 g Feta darauf verteilen.',setting:'5 Min.',book:'Original Schritt 4.'}
+  ]},
+  haehnchen_salsa:{title:'Hähnchenbrust mit gegrillter Paprika & Salsa-Soße',adaptation:'',defaultYield:1,steps:[
+    {title:'Vorheizen',needs:[],text:'Backofen auf 250 °C vorheizen.',setting:'250 °C',book:'Original Schritt 1 · S. 45.'},
+    {title:'Vorbereiten',needs:['1 rote Paprika','½ gelbe Paprika','½ grüne Paprika','2 Tomaten','250 g Hähnchenbrustfilet','Salz','Pfeffer'],text:'Paprika in dicke Streifen, Tomaten klein würfeln, Hähnchen salzen und pfeffern.',setting:'Originalrezept · S. 45',book:'Original Schritt 2.'},
+    {title:'Salsa',needs:['1 Knoblauchzehe','1 Schalotte','1 TL Rapsöl','½ milde Chilischote','1 TL Tomatenmark','2 Tomaten'],text:'Knoblauch und Schalotte würfeln. Mit 1 TL Rapsöl und Chili 2 Minuten andünsten. Tomatenmark und Tomaten zugeben und 20 Minuten mitkochen.',setting:'2 Min. + 20 Min.',book:'Original Schritt 3.'},
+    {title:'Paprika grillen',needs:['Paprikastreifen','1 TL Rapsöl','Salz','Pfeffer'],text:'Paprika mit 1 TL Öl beträufeln, würzen und 15 Minuten in den Ofen geben.',setting:'250 °C · 15 Min.',book:'Original Schritt 4.'},
+    {title:'Hähnchen braten',needs:['250 g Hähnchenbrustfilet','restlicher 1 TL Rapsöl'],text:'Hähnchen mit dem restlichen Rapsöl 6 Minuten anbraten.',setting:'6 Min.',book:'Original Schritt 5.'},
+    {title:'Salsa abschmecken',needs:['1 TL Honig','Salz','Pfeffer','Oregano','Salsa'],text:'Honig, Salz, Pfeffer und Oregano zur Salsa geben und verrühren.',setting:'Originalrezept · S. 45',book:'Original Schritt 6.'},
+    {title:'Anrichten',needs:['Paprika','Hähnchenbrust','Salsa-Soße','Petersilie, frisch'],text:'Anrichten, Salsa dazu servieren und mit Petersilie garnieren.',setting:'Fertig',book:'Original Schritt 7.'}
+  ]},
+  schlemmerfilet:{title:'Schlemmerfilet auf buntem Gemüse',adaptation:'Glutenfrei: Vollkornsemmelbrösel durch glutenfreie Semmelbrösel ersetzen; Würzer-Pulver glutenfrei.',defaultYield:4,steps:[
+    {title:'Fisch vorbereiten',needs:['600 g Kabeljaufilet, frisch oder TK','Salz','Pfeffer','4 TL grobkörniger Senf','etwas Öl für die Form','150 ml saure Sahne 10 %','100 ml fettreduzierte Kochsahne 15 %'],text:'Fisch würzen, mit 4 TL Senf bestreichen und in eine leicht gefettete Form legen. Saure Sahne und Kochsahne verrühren, leicht salzen. Backofen auf 200 °C Ober-/Unterhitze vorheizen.',setting:'200 °C vorheizen',book:'Original Schritt 1 · S. 50.'},
+    {title:'Kräuterkruste',needs:['2 Eiweiß','50 g glutenfreie Semmelbrösel','1 Packung TK-Gartenkräuter','50 g geriebener Käse','Salz','Pfeffer','glutenfreies Würzer-Pulver'],text:'Eiweiß steif schlagen. Semmelbrösel mit Kräutern und Käse mischen, würzen, Eiweiß unterheben und auf den Fisch geben.',setting:'Originalrezept · S. 50',book:'Original Schritt 2.'},
+    {title:'Backen',needs:['Sahnemischung','vorbereitete Fischfilets'],text:'Sahne seitlich angießen und 20 Minuten bei 190 °C backen. Danach weitere 8–10 Minuten mit Grillfunktion übergrillen.',setting:'190 °C · 20 Min. + Grill 8–10 Min.',book:'Original Schritt 3.'},
+    {title:'Gemüse',needs:['1 Zwiebel','1 EL Olivenöl','500 g Zucchini','3 rote Paprika','2 Frühlingszwiebeln','300 g Kirschtomaten','Salz','Pfeffer','Würzer-Pulver','4 Thymianzweige'],text:'Zwiebel, Zucchini, Paprika und Frühlingszwiebeln schneiden. 1 EL Öl erhitzen, Zwiebel glasig dünsten, Gemüse und Tomaten zugeben und bissfest schwenken. Würzen und Thymian darüberstreuen.',setting:'Pfanne · milde Hitze',book:'Original Schritt 4.'},
+    {title:'Anrichten',needs:['Schlemmerfilets','buntes Gemüse'],text:'Schlemmerfilets mit dem Gemüse anrichten.',setting:'Fertig',book:'Original Schritt 5.'}
+  ]}
 };
 
 
 function plannedPortionsFor(key){
-  const map={quark:2,blumenkohl:5,tomate:null,geniesser:2,feta:4,aubergine:4,haehnchen:4,lachs:4,tofu:4,hackbaellchen:4};
+  const map={quark:2,blumenkohl:5,tomate:null,geniesser:2,feta:4,aubergine:4,haehnchen:4,lachs:7,tofu:4,hackbaellchen:4,frittata:6,curry:6,kartoffelpfanne:6,auberginenpizza:1,schweinefilet:7,linsensuppe:6,haehnchen_salsa:6,schlemmerfilet:4};
   return map[key]??tm6Cook[key]?.defaultYield??null;
 }
 
@@ -1457,10 +1499,10 @@ function renderRecipes(){
   if(recipeOpen) return renderRecipeDetail(recipeOpen);
 
   document.getElementById('app').innerHTML=`<main class="shell">
-  <header><div><div class="eyebrow">KOCHBUCH · SO–DI</div><h1>Rezepte</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+  <header><div><div class="eyebrow">KOCHBUCH · ORIGINALREZEPTE</div><h1>Rezepte</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
-    <div><b>Original & Anpassung getrennt</b><br><span class="muted">Die Kochbuchzutaten bleiben sichtbar; Änderungen stehen extra dabei.</span></div>
+    <div><b>Original & Anpassung getrennt</b><br><span class="muted">Zutaten, Mengen und Schritte stammen aus dem Originalrezept. Glutenfreie Änderungen stehen getrennt als Anpassung dabei. Jeder Kochschritt zeigt die benötigten Mengen.</span></div>
   </section>
   
 
@@ -1504,7 +1546,7 @@ function renderRecipeDetail(key){
   `<section class="notice" style="margin-top:14px"><div><b>Hinweis</b><br><span class="muted">${r.note}</span></div></section>`}
 
   <button onclick="startCook('${key}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">
-    Im TM6 kochen
+    Kochmodus starten
   </button>
 
   <nav class="bottom"><span onclick="recipeOpen=null;activeTab='today';renderApp()">Heute</span><span onclick="recipeOpen=null;activeTab='plan';renderApp()">Plan</span><b onclick="recipeOpen=null;activeTab='recipes';renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="recipeOpen=null;activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
