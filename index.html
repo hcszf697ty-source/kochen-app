@@ -456,10 +456,10 @@ const weekPlan = {
     label:'Sa · 05.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'Ulrike + Marcel: Quark + Beeren in Box · Kinder: Hüttenkäse mit Gemüse zum Mitnehmen'],
-      ['Mittag',recipeLink('Pikantes Omelett','omelett'),'Spontan zu Hause · frisch zubereiten'],
+      ['Mittag',recipeLink('Hackbällchen pikant','hackbaellchen'),'Heute spontan zu Hause · Kochbuch S. 43'],
       ['Abend','Zucchini-Pilz-Frittata','Familienabendessen + 2 Lunchportionen für Sonntag']
     ],
-    note:'Samstagfrüh seid ihr außer Haus; Quark mit Beeren wird mitgenommen. Heute Mittag seid ihr spontan zu Hause: Pikantes Omelett aus dem Kochbuch. Abends startet die Meal-Prep-Kette mit der Zucchini-Pilz-Frittata; zwei Portionen für Ulrike und Marcel für Sonntagmittag zurückstellen.',
+    note:'Samstagfrüh seid ihr außer Haus; Quark mit Beeren wird mitgenommen. Heute Mittag seid ihr spontan zu Hause: Hackbällchen pikant, S. 43. Abends startet die Meal-Prep-Kette mit der Zucchini-Pilz-Frittata; zwei Portionen für Ulrike und Marcel für Sonntagmittag zurückstellen.',
     preps:[]
   },
   '2026-09-06':{
@@ -827,6 +827,26 @@ const recipeData = {
     ],
     adaptation: 'Reismehl sowie glutenfreie Soja- und Teriyaki-Soße verwenden.',
     note: 'Kochbuch S. 53 · 427 kcal · 24 g Protein · 27 g KH pro Portion.'
+  },
+  hackbaellchen: {
+    title: 'Hackbällchen pikant',
+    phase: 'Turbo',
+    meta: 'S. 43 · 4 Portionen',
+    ingredients: [
+      '500 g Hackfleisch',
+      'insgesamt 3 Zwiebeln',
+      '2 Paprika',
+      'Quark',
+      'glutenfreie Semmelbrösel',
+      'Senf',
+      'Knoblauch',
+      'Ingwer',
+      '400 g stückige Tomaten',
+      '100 ml Kochsahne',
+      'Gewürze laut Kochbuch'
+    ],
+    adaptation: 'Glutenfrei: glutenfreie Semmelbrösel verwenden.',
+    note: 'Kochbuch S. 43 · 4 Portionen · 477 kcal · 42 g Protein pro Portion. Bei Zutaten ohne hier gespeicherte Mengenangabe gilt die Originalmenge auf S. 43.'
   }
 };
 
@@ -947,12 +967,25 @@ const tm6Cook = {
       {title:'Dressing',needs:['2 cm Ingwer','3 EL Orangensaft','3 EL Apfelessig','1 TL Honig','2 EL Rapsöl für das Dressing','Salz und Pfeffer'],text:'Ingwer fein zerkleinern, übrige Dressingzutaten zugeben und vermischen.',setting:'5 Sek. · Stufe 7, dann 10 Sek. · Stufe 4',book:'TM6-Übertragung des Dressings; Zutatenmengen nach Kochbuch.'},
       {title:'Anrichten',needs:['Salat','Dressing','Sesam-Tofu'],text:'Dressing über den Salat geben und Sesam-Tofu darauf verteilen. Für die Lunchbox Dressing separat transportieren.',setting:'Fertig',book:'1 Kochbuch-Rezeptmenge = 4 Portionen.'}
     ]
+  },
+  hackbaellchen: {
+    title:'Hackbällchen pikant',
+    adaptation:'Glutenfrei: glutenfreie Semmelbrösel verwenden.',
+    defaultYield:4,
+    steps:[
+      {title:'Vorbereiten',needs:['500 g Hackfleisch','Zwiebeln','Knoblauch','Ingwer','Quark','glutenfreie Semmelbrösel','Senf','Gewürze laut S. 43'],text:'Zutaten für die Hackbällchen nach S. 43 bereitstellen. Zwiebel, Knoblauch und Ingwer vorbereiten.',setting:'Vorbereitung',book:'Die Mengen, die in der App nicht numerisch hinterlegt sind, bitte direkt nach S. 43 dosieren.'},
+      {title:'Hackmasse',needs:['vorbereitete Zutaten für die Hackbällchen'],text:'Hackfleisch mit Quark, glutenfreien Semmelbröseln, Senf und den im Kochbuch vorgesehenen Würzzutaten zu einer Masse verarbeiten.',setting:'Von Hand / Schüssel',book:'Glutenfreie Anpassung: glutenfreie Semmelbrösel.'},
+      {title:'Bällchen formen',needs:['Hackmasse'],text:'Aus der Hackmasse gleichmäßige Hackbällchen formen.',setting:'Ohne TM6',book:'Kochbuch S. 43.'},
+      {title:'Hackbällchen braten',needs:['geformte Hackbällchen'],text:'Hackbällchen in einer großen Pfanne rundum anbraten.',setting:'Pfanne',book:'Nach S. 43 braten.'},
+      {title:'Pikante Sauce',needs:['restliche Zwiebeln','2 Paprika','400 g stückige Tomaten','100 ml Kochsahne','Knoblauch','Ingwer','Gewürze laut S. 43'],text:'Gemüse und Sauce nach dem Kochbuch zubereiten. Tomaten und Kochsahne zugeben und pikant abschmecken.',setting:'Pfanne',book:'Zutatenbasis nach S. 43; keine zusätzlichen Zutaten ergänzt.'},
+      {title:'Fertig garen',needs:['Hackbällchen','pikante Sauce'],text:'Hackbällchen in der Sauce fertig garen und anschließend auf 4 Portionen verteilen.',setting:'Pfanne · bis vollständig durchgegart',book:'1 Kochbuch-Rezeptmenge = 4 Portionen.'}
+    ]
   }
 };
 
 
 function plannedPortionsFor(key){
-  const map={quark:2,blumenkohl:5,tomate:null,geniesser:2,feta:4,aubergine:4,haehnchen:4,lachs:4,tofu:4};
+  const map={quark:2,blumenkohl:5,tomate:null,geniesser:2,feta:4,aubergine:4,haehnchen:4,lachs:4,tofu:4,hackbaellchen:4};
   return map[key]??tm6Cook[key]?.defaultYield??null;
 }
 
@@ -1625,10 +1658,10 @@ const confirmedBioBox0907 = [
 ];
 
 const fridayShopping0409 = [
-  {id:'hack',name:'Hackfleisch',qty:'1 kg kaufen',why:'750 g für Hackbällchen pikant (So) · Rest bleibt im Vorrat'},
+  {id:'hack',name:'Hackfleisch',qty:'mind. 500 g',why:'Hackbällchen pikant heute Mittag · Kochbuch S. 43'},
   {id:'zucchini',name:'Zucchini',qty:'ca. 600 g',why:'für Zucchini-Pilz-Frittata am Samstag · die Biokiste kommt erst Montag'},
   {id:'pilze',name:'Pilze / Champignons',qty:'ca. 600 g',why:'300 g Frittata (Sa) + 300 g Kartoffelpfanne (Di)'},
-  {id:'eier',name:'Eier',qty:'Bedarf neu prüfen',why:'Zusätzlich heute Mittag Pikantes Omelett eingeplant. Eierbestand nach dem Mittag neu erfassen; Frittata heute Abend, Kartoffelpfanne Dienstag und Sonntags-Omelett bleiben im Plan.'},
+  {id:'eier',name:'Eier',qty:'Bedarf für Restplan prüfen',why:'Heute Mittag keine Eier: Hackbällchen pikant statt Omelett. Eier bleiben für Frittata, Kartoffelpfanne und Sonntags-Omelett reserviert.'},
   {id:'kartoffeln',name:'Kartoffeln',qty:'1 kg',why:'900 g für Kartoffelpfanne (Di) · nicht in der Biokiste 07.09.'},
   {id:'bohnen',name:'Grüne Bohnen',qty:'ca. 750 g',why:'für 6 Portionen Blumenkohl-Curry am Montag'},
   {id:'blumenkohl',name:'Blumenkohl',qty:'1 großer zusätzlich',why:'Curry braucht hochgerechnet ca. 1,5 kg; Montag kommt zusätzlich 1 Blumenkohl aus der Biokiste'},
@@ -1648,7 +1681,7 @@ const fridayShopping0409 = [
   {id:'huettenkaese',name:'Hüttenkäse',qty:'Bestand prüfen, sonst 1–2 Becher',why:'Samstagfrüh für die Kinder zum Mitnehmen; Quarkfrühstück ist nur für Ulrike + Marcel'},
   {id:'radieschen',name:'Radieschen',qty:'1 Bund',why:'für Hüttenkäse mit Gemüse am Samstag'},
   {id:'schalotte',name:'Schalotte',qty:'1–2 Stück',why:'für Hüttenkäse mit Gemüse am Samstag und Pikantes Omelett am Sonntag'},
-  {id:'omelettgemuese',name:'Champignons + Tomaten fürs Omelett',qty:'Bestand prüfen',why:'heute Mittag Pikantes Omelett zusätzlich; Sonntags-Omelett bleibt ebenfalls geplant'},
+  {id:'omelettgemuese',name:'Champignons + Tomaten fürs Omelett',qty:'Bestand prüfen',why:'nur noch für das geplante Sonntags-Omelett'},
   {id:'omeletthuette',name:'Hüttenkäse fürs Omelett',qty:'Bestand prüfen',why:'für das Pikante Omelett heute und am Sonntag; vorhandene Becher zuerst verwenden'}
 ];
 const fridayCheck0409 = [
