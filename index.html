@@ -225,7 +225,12 @@ const recipeNutrition={
   'Hähnchen-Sesam-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
   'Hähnchen mit Sesamkruste auf Tomaten-Gurken-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
   'Auberginen-Hack-Auflauf':{kcal:486,protein:48,carbs:20,source:'Kochbuch'},
-  'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'}
+  'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'},
+  'Schlemmerfilet auf buntem Gemüse':{kcal:346,protein:38,carbs:17,source:'Kochbuch'},
+  'Toast mit Schinken & Ei':{kcal:423,protein:25,carbs:39,source:'Kochbuch'},
+  'Auberginen gefüllt mit Linsencurry':{kcal:521,protein:21,carbs:60,source:'Kochbuch'},
+  'Geschmortes Rindfleisch chinesische Art':{kcal:538,protein:38,carbs:63,source:'Kochbuch'},
+  'Jägerschnitzel mit Champignons':{kcal:401,protein:41,carbs:26,source:'Kochbuch'}
 };
 
 const recipeDefaultCooked={
@@ -237,7 +242,12 @@ const recipeDefaultCooked={
   'Auberginen-Hack-Auflauf':4,
   'Gebackener Feta auf Paprika-Tomaten':4,
   'Blumenkohlsuppe':5,
-  'Tomatensuppe':null
+  'Tomatensuppe':null,
+  'Schlemmerfilet auf buntem Gemüse':4,
+  'Toast mit Schinken & Ei':1,
+  'Auberginen gefüllt mit Linsencurry':1,
+  'Geschmortes Rindfleisch chinesische Art':4,
+  'Jägerschnitzel mit Champignons':4
 };
 
 function dayKeyFor(day){
@@ -447,7 +457,7 @@ const weekPlan = {
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
       ['Mittag außer Haus','Eingelegtes Schweinefilet mit süßsaurem Gemüse','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Schlemmerfilet auf buntem Gemüse','Familienabendessen']
+      ['Abend',recipeLink('Schlemmerfilet auf buntem Gemüse','schlemmerfilet'),'Familienabendessen']
     ],
     note:'Freitagseinkauf deckt Freitag bis Montag; vorhandene Tomaten und 1 normale Zucchini werden zuerst verwendet.',
     preps:[]
@@ -455,7 +465,7 @@ const weekPlan = {
   '2026-09-12':{
     label:'Sa · 12.09.', phase:'Turbo',
     meals:[
-      ['Frühstück','Hüttenkäse mit Gemüse','Wochenend-Frühstück aus dem Kochbuch'],
+      ['Frühstück',recipeLink('Hüttenkäse mit Gemüse','huettenkaese'),'Wochenend-Frühstück aus dem Kochbuch'],
       ['Mittag','Rohkost-Salat mit Ei','Turbo · Kochbuch S. 46'],
       ['Abend','Außer Haus','keine Mahlzeit einplanen']
     ],
@@ -465,9 +475,9 @@ const weekPlan = {
   '2026-09-13':{
     label:'So · 13.09.', phase:'Abnehmphase · Tag 15',
     meals:[
-      ['Frühstück','Toast mit Schinken & Ei','glutenfreier Vollkorntoast · 423 kcal · 25 g Protein · 39 g KH pro Buchportion'],
-      ['Mittag','Auberginen gefüllt mit Linsencurry','Abnehmphase · 521 kcal · 21 g Protein · 60 g KH pro Buchportion'],
-      ['Abend','Geschmortes Rindfleisch chinesische Art','Familienabendessen + 2 Lunchportionen für Montag · 538 kcal · 38 g Protein · 63 g KH pro Buchportion']
+      ['Frühstück',recipeLink('Toast mit Schinken & Ei','toastEi'),'glutenfreier Vollkorntoast · 423 kcal · 25 g Protein · 39 g KH pro Buchportion'],
+      ['Mittag',recipeLink('Auberginen gefüllt mit Linsencurry','linsencurry'),'Abnehmphase · 521 kcal · 21 g Protein · 60 g KH pro Buchportion'],
+      ['Abend',recipeLink('Geschmortes Rindfleisch chinesische Art','rindChina'),'Familienabendessen + 2 Lunchportionen für Montag · 538 kcal · 38 g Protein · 63 g KH pro Buchportion']
     ],
     note:'Start der Abnehmphase. Glutenfreie Anpassungen ausdrücklich kennzeichnen; Sojasoße glutenfrei verwenden.',
     preps:[]
@@ -476,8 +486,8 @@ const weekPlan = {
     label:'Mo · 14.09.', phase:'Abnehmphase · Tag 16',
     meals:[
       ['Frühstück','Porridge','schnelles Frühstück aus der Abnehmphase · glutenfreie Haferflocken'],
-      ['Mittag außer Haus','Geschmortes Rindfleisch chinesische Art','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Jägerschnitzel mit Champignons','Familienabendessen + 2 Lunchportionen für Dienstag · 401 kcal · 41 g Protein · 26 g KH pro Buchportion']
+      ['Mittag außer Haus',recipeLink('Geschmortes Rindfleisch chinesische Art','rindChina'),'vom Vorabend · Ulrike + Marcel'],
+      ['Abend',recipeLink('Jägerschnitzel mit Champignons','jaegerschnitzel'),'Familienabendessen + 2 Lunchportionen für Dienstag · 401 kcal · 41 g Protein · 26 g KH pro Buchportion']
     ],
     note:'Biokiste kommt heute. Die 700 g Steinchampignons werden für das Jägerschnitzel genutzt; zwei Lunchportionen für Dienstag zurückstellen.',
     preps:[]
@@ -597,6 +607,131 @@ const recipeData = {
     ],
     adaptation: '',
     note: 'Im aktuellen Plan nur für die 2 Erwachsenen.'
+  },
+  huettenkaese: {
+    title: 'Hüttenkäse mit Gemüse',
+    phase: 'Turbo',
+    meta: 'Frühstück · 1 Portion',
+    ingredients: [
+      '300 g Hüttenkäse, fettarm',
+      '1 TL Olivenöl',
+      '6 Radieschen',
+      '1 EL Schnittlauch',
+      '1 Schalotte',
+      'Kräuter und Salz'
+    ],
+    adaptation: '',
+    note: 'Originalzutaten aus der Kochbuch-Rezeptkarte. Glutenfreie Auswahl bei zusammengesetzten Gewürzen beachten.'
+  },
+  schlemmerfilet: {
+    title: 'Schlemmerfilet auf buntem Gemüse',
+    phase: 'Turbo',
+    meta: 'Abendessen · 4 Portionen',
+    ingredients: [
+      '600 g Kabeljau',
+      'Salz und Pfeffer',
+      '4 TL grober Senf',
+      'Öl für die Auflaufform',
+      '150 ml saure Sahne 10 %',
+      '100 ml Kochsahne 15 %',
+      '2 Eiweiß',
+      '50 g Vollkorn-Paniermehl',
+      '1 Packung TK-Gartenkräuter',
+      '50 g geriebener Käse',
+      'Salz und Pfeffer',
+      'Figurscout Würzer',
+      '1 Zwiebel',
+      '1 EL Olivenöl',
+      '500 g Zucchini',
+      '3 rote Paprikaschoten',
+      '2 Frühlingszwiebeln',
+      '300 g Cherrytomaten',
+      'Figurscout Würzer',
+      '4 Zweige Thymian'
+    ],
+    adaptation: 'Glutenfreie Anpassung: glutenfreies Paniermehl verwenden; Würzer nur glutenfrei.',
+    note: 'Kochbuch S. 50 · 346 kcal · 38 g Protein · 17 g KH pro Portion.'
+  },
+  toastEi: {
+    title: 'Toast mit Schinken & Ei',
+    phase: 'Abnehmphase',
+    meta: 'Frühstück · 1 Portion',
+    ingredients: [
+      '2 Scheiben Vollkorntoast',
+      '1 TL Butter',
+      '2 Scheiben gekochter Schinken',
+      '1 Ei',
+      '1 TL Schnittlauchröllchen',
+      'Salz und Pfeffer'
+    ],
+    adaptation: 'Glutenfreie Anpassung: glutenfreien Vollkorntoast verwenden.',
+    note: 'Kochbuch S. 77 · 423 kcal · 25 g Protein · 39 g KH pro Portion.'
+  },
+  linsencurry: {
+    title: 'Auberginen gefüllt mit Linsencurry',
+    phase: 'Abnehmphase',
+    meta: 'Mittag / Abend · 1 Portion',
+    ingredients: [
+      '1 Aubergine',
+      '1 EL Olivenöl',
+      '1 TL Currypulver',
+      '1 kleine Zwiebel',
+      '1 Knoblauchzehe',
+      '60 g rote Linsen',
+      '250 ml Gemüsebrühe',
+      '1 Möhre',
+      '1 TL Olivenöl',
+      '1 TL Currypulver',
+      'Salz und Pfeffer',
+      '1 EL Crème fraîche',
+      '1 EL Schnittlauchröllchen'
+    ],
+    adaptation: 'Glutenfreie Anpassung: glutenfreie Gemüsebrühe verwenden.',
+    note: 'Kochbuch S. 118 · 521 kcal · 21 g Protein · 60 g KH pro Portion.'
+  },
+  rindChina: {
+    title: 'Geschmortes Rindfleisch chinesische Art',
+    phase: 'Abnehmphase',
+    meta: 'Abendessen · 4 Portionen',
+    ingredients: [
+      '500 g Rinderhüfte',
+      '1 EL Olivenöl',
+      '1 Zwiebel',
+      '2 Knoblauchzehen',
+      '1 Zucchini',
+      '1 rote Paprikaschote',
+      '1 Stange Lauch',
+      '200 g Blattspinat',
+      '150 g Champignons',
+      '1 EL Honig',
+      '2 EL Sojasauce',
+      '1 TL Five-Spice-Gewürz',
+      '2 EL Sesamöl',
+      '2 EL Sesam',
+      '250 g Naturreis'
+    ],
+    adaptation: 'Glutenfreie Anpassung: glutenfreie Sojasauce verwenden.',
+    note: 'Kochbuch S. 85 · 538 kcal · 38 g Protein · 63 g KH pro Portion.'
+  },
+  jaegerschnitzel: {
+    title: 'Jägerschnitzel mit Champignons',
+    phase: 'Abnehmphase',
+    meta: 'Abendessen · 4 Portionen',
+    ingredients: [
+      '500 g kleine Kartoffeln',
+      '4 Schweineschnitzel',
+      '2 EL Rapsöl',
+      '500 g Champignons',
+      '1 kleine Zwiebel',
+      '1 EL Olivenöl',
+      '100 ml Gemüsebrühe',
+      '100 ml Kochsahne 15 %',
+      '1 TL Senf',
+      '1 EL Schnittlauch',
+      'Salz und Pfeffer'
+    ],
+    adaptation: 'Glutenfreie Anpassung: Gemüsebrühe und Senf glutenfrei wählen.',
+    note: 'Kochbuch S. 81 · 401 kcal · 41 g Protein · 26 g KH pro Portion.'
   },
   blumenkohl: {
     title: 'Blumenkohlsuppe',
@@ -1443,9 +1578,7 @@ function renderRecipeDetail(key){
   </section>`:
   `<section class="notice" style="margin-top:14px"><div><b>Hinweis</b><br><span class="muted">${r.note}</span></div></section>`}
 
-  <button onclick="startCook('${key}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">
-    Im TM6 kochen
-  </button>
+  ${tm6Cook[key]?`<button onclick="startCook('${key}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">Im TM6 kochen</button>`:`<section class="notice" style="margin-top:18px"><div><b>Rezeptkarte vollständig</b><br><span class="muted">Für dieses Rezept ist noch kein verifizierter TM6-Kochmodus hinterlegt. Die Originalzutaten sind oben vollständig gespeichert.</span></div></section>`}
 
   <nav class="bottom"><span onclick="recipeOpen=null;activeTab='today';renderApp()">Heute</span><span onclick="recipeOpen=null;activeTab='plan';renderApp()">Plan</span><b onclick="recipeOpen=null;activeTab='recipes';renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="recipeOpen=null;activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
