@@ -180,7 +180,7 @@ function prepCard(title,key,whenText){
 
 function recipeLink(title,key){
   if(key){
-    return `<span onclick="openRecipe('${key}')" style="cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px">${title}</span>`;
+    return `<button type="button" onclick="event.stopPropagation();openRecipe('${key}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #cbd8cf;border-radius:12px;background:#f3f7f2;color:#183425;font:inherit;font-weight:800;cursor:pointer">${title}<span aria-hidden="true">›</span></button>`;
   }
   return `<span style="font-weight:700">${title}</span>`;
 }
@@ -1532,12 +1532,14 @@ function renderRecipes(){
   if(recipeOpen) return renderRecipeDetail(recipeOpen);
 
   document.getElementById('app').innerHTML=`<main class="shell">
-  <header><div><div class="eyebrow">KOCHBUCH · SO–DI</div><h1>Rezepte</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+  <header><div><div class="eyebrow">KOCHBUCH · AKTUELLER PLAN</div><h1>Rezeptkarten</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
     <div><b>Original & Anpassung getrennt</b><br><span class="muted">Die Kochbuchzutaten bleiben sichtbar; Änderungen stehen extra dabei.</span></div>
   </section>
   
+
+  <section class="notice" style="margin-top:14px;background:#f7f2e9;border-color:#e6dccb"><div><b>Rezeptkarten öffnen</b><br><span class="muted">Tippe eine Karte an. Im Plan sind Gerichte mit Rezeptkarte zusätzlich als grüne Schaltfläche markiert.</span></div></section>
 
   <section class="list">
     ${Object.entries(recipeData).map(([key,r])=>`
