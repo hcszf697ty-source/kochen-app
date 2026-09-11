@@ -422,92 +422,22 @@ function nutritionBadge(title){
 }
 
 const weekPlan = {
-  '2026-09-02':{
-    label:'Mi · 02.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Genießer-Salat','geniesser'),'2 Restportionen · heute aufbrauchen'],
-      ['Abend',recipeLink('Auberginen-Hack-Auflauf','aubergine'),'Familienabendessen + 2 Lunchportionen für Donnerstag']
-    ],
-    note:'Ab heute Meal-Prep-Regel: abends kochen, 2 Erwachsenenportionen für den nächsten Mittag zurückstellen. Frisches Hähnchen ist bereits gekauft.',
-    preps:[]
-  },
-  '2026-09-03':{
-    label:'Do · 03.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Auberginen-Hack-Auflauf','aubergine'),'vom Vorabend · Ulrike + Marcel'],
-      ['Abend',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'Familienabendessen + 2 Lunchportionen für Freitag · Hähnchen bereits gekauft']
-    ],
-    note:'Das frische Hähnchen hat Vorrang. Beim Kochen zwei Portionen direkt für Freitag zurückstellen.',
-    preps:[]
-  },
-  '2026-09-04':{
-    label:'Fr · 04.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus',recipeLink('Hähnchen-Sesam-Salat','haehnchen'),'vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Restaurant','Eiweiß + Gemüse/Salat · glutenfrei · Stärke-Beilage klein/weg · Soße/Dressing separat']
-    ],
-    note:'Freitagabend seid ihr sicher außer Haus. Restaurant-Regel: gegrillter Fisch, Steak, Hähnchen oder Garnelen mit Gemüse bzw. großem Salat wählen. Panaden, Marinaden, Soßen und Fritteusen wegen Gluten ausdrücklich prüfen. TK-Lachs bleibt eingefroren. Der Freitags-Einkauf deckt trotzdem Freitagabend bis einschließlich Dienstag ab, falls sich etwas ändert.',
-    preps:[]
-  },
-  '2026-09-05':{
-    label:'Sa · 05.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'Ulrike + Marcel: Quark + Beeren in Box · Kinder: Hüttenkäse mit Gemüse zum Mitnehmen'],
-      ['Mittag',recipeLink('Hackbällchen pikant','hackbaellchen'),'Heute spontan zu Hause · Kochbuch S. 43'],
-      ['Abend','Zucchini-Pilz-Frittata','Familienabendessen + 2 Lunchportionen für Sonntag']
-    ],
-    note:'Samstagfrüh seid ihr außer Haus; Quark mit Beeren wird mitgenommen. Heute Mittag seid ihr spontan zu Hause: Hackbällchen pikant, S. 43. Abends startet die Meal-Prep-Kette mit der Zucchini-Pilz-Frittata; zwei Portionen für Ulrike und Marcel für Sonntagmittag zurückstellen.',
-    preps:[]
-  },
-  '2026-09-06':{
-    label:'So · 06.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück','Pikantes Omelett','Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Zucchini-Pilz-Frittata','vom Vorabend'],
-      ['Abend','Hackbällchen pikant','Familienabendessen + 2 Lunchportionen für Montag']
-    ],
-    note:'Die Montag-Biokiste kommt erst morgen; Zutaten für heute gehören zum normalen Einkauf/Vorrat.',
-    preps:[]
-  },
-  '2026-09-07':{
-    label:'Mo · 07.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Hackbällchen pikant','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Blumenkohl-Curry mit Bohnen','Familienabendessen + 2 Lunchportionen für Dienstag']
-    ],
-    note:'Biokiste kommt heute. Ab jetzt Gemüse aus der Lieferung zuerst nutzen.',
-    preps:[]
-  },
-  '2026-09-08':{
-    label:'Di · 08.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Blumenkohl-Curry mit Bohnen','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Kartoffelpfanne mit Spiegelei','Familienabendessen + 2 Lunchportionen für Mittwoch']
-    ],
-    note:'Meal Prep: zwei Portionen für Mittwoch direkt abfüllen.',
-    preps:[]
-  },
   '2026-09-09':{
     label:'Mi · 09.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
       ['Mittag außer Haus','Kartoffelpfanne mit Spiegelei','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Auberginen-Pizza mit Mozzarella','Familienabendessen + 2 Lunchportionen für Donnerstag']
+      ['Abend','Lachs mit scharfem Kohlrabi-Karotten-Gemüse','Familienabendessen']
     ],
-    note:'Abwechslungsreiche Turbo-Woche ohne Wiederholung der Hauptgerichte aus der Vorwoche.',
+    note:'Tatsächlich gegessen: Lachs mit scharfem Kohlrabi-Karotten-Gemüse.',
     preps:[]
   },
   '2026-09-10':{
     label:'Do · 10.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Auberginen-Pizza mit Mozzarella','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Eingelegtes Schweinefilet mit buntem Gemüse','Familienabendessen + 2 Lunchportionen für Freitag']
+      ['Mittag außer Haus','Rest / außer Haus','Ulrike + Marcel'],
+      ['Abend','Eingelegtes Schweinefilet mit süßsaurem Gemüse','Familienabendessen + 2 Lunchportionen für Freitag']
     ],
     note:'Zwei Lunchportionen für Freitag zurückstellen.',
     preps:[]
@@ -516,30 +446,40 @@ const weekPlan = {
     label:'Fr · 11.09.', phase:'Turbo',
     meals:[
       ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Eingelegtes Schweinefilet mit buntem Gemüse','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Linsensuppe mit Feta','Familienabendessen + 2 Lunchportionen für Samstag']
+      ['Mittag außer Haus','Eingelegtes Schweinefilet mit süßsaurem Gemüse','vom Vorabend · Ulrike + Marcel'],
+      ['Abend','Schlemmerfilet auf buntem Gemüse','Familienabendessen']
     ],
-    note:'Normaler Meal-Prep-Tag: zwei Portionen für Samstagmittag zurückstellen.',
+    note:'Freitagseinkauf deckt Freitag bis Montag; vorhandene Tomaten und 1 normale Zucchini werden zuerst verwendet.',
     preps:[]
   },
   '2026-09-12':{
     label:'Sa · 12.09.', phase:'Turbo',
     meals:[
       ['Frühstück','Hüttenkäse mit Gemüse','Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Linsensuppe mit Feta','vom Vorabend'],
-      ['Abend','Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','Familienabendessen + 2 Lunchportionen für Sonntag']
+      ['Mittag','Rohkost-Salat mit Ei','Turbo · Kochbuch S. 46'],
+      ['Abend','Außer Haus','keine Mahlzeit einplanen']
     ],
-    note:'Samstag ist wieder als normaler Zuhause-Tag eingeplant. Am Wochenende kein Quark mit Beeren.',
+    note:'Letzter Turbo-Tag. Abends seid ihr außer Haus.',
     preps:[]
   },
   '2026-09-13':{
-    label:'So · 13.09.', phase:'Turbo',
+    label:'So · 13.09.', phase:'Abnehmphase · Tag 15',
     meals:[
-      ['Frühstück','Gebratener Hüttenkäse','Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Hähnchenbrust mit gegrillter Paprika & Salsa-Soße','vom Vorabend'],
-      ['Abend','Schlemmerfilet auf buntem Gemüse','Familienabendessen']
+      ['Frühstück','Toast mit Schinken & Ei','glutenfreier Vollkorntoast · 423 kcal · 25 g Protein · 39 g KH pro Buchportion'],
+      ['Mittag','Auberginen gefüllt mit Linsencurry','Abnehmphase · 521 kcal · 21 g Protein · 60 g KH pro Buchportion'],
+      ['Abend','Geschmortes Rindfleisch chinesische Art','Familienabendessen + 2 Lunchportionen für Montag · 538 kcal · 38 g Protein · 63 g KH pro Buchportion']
     ],
-    note:'Kichererbsen-Salat ist für diese Woche nicht eingeplant.',
+    note:'Start der Abnehmphase. Glutenfreie Anpassungen ausdrücklich kennzeichnen; Sojasoße glutenfrei verwenden.',
+    preps:[]
+  },
+  '2026-09-14':{
+    label:'Mo · 14.09.', phase:'Abnehmphase · Tag 16',
+    meals:[
+      ['Frühstück','Porridge','schnelles Frühstück aus der Abnehmphase · glutenfreie Haferflocken'],
+      ['Mittag außer Haus','Geschmortes Rindfleisch chinesische Art','vom Vorabend · Ulrike + Marcel'],
+      ['Abend','Jägerschnitzel mit Champignons','Familienabendessen + 2 Lunchportionen für Dienstag · 401 kcal · 41 g Protein · 26 g KH pro Buchportion']
+    ],
+    note:'Biokiste kommt heute. Die 700 g Steinchampignons werden für das Jägerschnitzel genutzt; zwei Lunchportionen für Dienstag zurückstellen.',
     preps:[]
   }
 };
@@ -581,7 +521,7 @@ function renderToday(){
   </main>`;
 }
 
-let planDay='2026-09-02';
+let planDay='2026-09-10';
 
 function setPlanDay(day){
   planDay=day;
@@ -589,16 +529,16 @@ function setPlanDay(day){
 }
 
 function renderPlan(){
-  const d=weekPlan[planDay]||weekPlan['2026-09-02'];
+  const d=weekPlan[planDay]||weekPlan['2026-09-10'];
   document.getElementById('app').innerHTML=`<main class="shell">
     <header><div><div class="eyebrow">TURBOPHASE</div><h1>Plan</h1></div>
       <div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
     <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
-      <div><b>02.09.–13.09.</b><br><span class="muted">Meal Prep: Abendessen → 2 Erwachsenenportionen für den nächsten Mittag</span></div>
+      <div><b>09.09.–14.09.</b><br><span class="muted">Meal Prep: Abendessen → 2 Erwachsenenportionen für den nächsten Mittag</span></div>
     </section>
 
-    <div class="eyebrow" style="margin:4px 0 7px">ALLE TAGE · 02.–13.09.</div>
+    <div class="eyebrow" style="margin:4px 0 7px">AKTUELLER PLAN · 09.–14.09.</div>
     <section style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:4px 0 14px">
       ${Object.entries(weekPlan).map(([key,x])=>`
         <button onclick="setPlanDay('${key}')" style="min-width:0;border:${planDay===key?'2px solid #294936':'1px solid #d8d2c3'};background:${planDay===key?'#edf3e9':'#fffdf7'};border-radius:15px;padding:10px 5px;text-align:center">
@@ -608,7 +548,7 @@ function renderPlan(){
     </section>
 
     <section style="margin:4px 0 18px">
-      <div class="eyebrow" style="margin-bottom:8px">NÄCHSTE WOCHE · 07.–13.09.</div>
+      <div class="eyebrow" style="margin-bottom:8px">AKTUELL · 09.–14.09.</div>
       <div class="list">
         ${Object.entries(weekPlan).filter(([key])=>key>='2026-09-07').map(([key,x])=>`
           <article class="item" onclick="setPlanDay('${key}')" style="cursor:pointer">
