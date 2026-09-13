@@ -31,7 +31,7 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 <div id="app"></div>
 <script>
 const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
-let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], portionRows=[], substitutionPrefs=[], mealSubstitutions=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
+let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], portionRows=[], substitutionPrefs=[], mealSubstitutions=[], recipeRows=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function formatBuy(r){
@@ -378,6 +378,71 @@ async function savePortionSplit(date,index){
   document.getElementById('portionSplitEditor')?.remove();
   renderApp();
 }
+
+function phaseCode(label){
+  const s=(label||'').toLowerCase();
+  if(s.includes('abnehm')) return 'ABNEHM';
+  if(s.includes('turbo')) return 'TURBO';
+  if(s.includes('zünder')||s.includes('zuender')) return 'ZUENDER';
+  return '';
+}
+function loadPlanOverrides(){
+  try{
+    const o=JSON.parse(localStorage.getItem('kochen_plan_overrides')||'{}');
+    Object.entries(o).forEach(([k,v])=>{
+      const [date,idx]=k.split('|');
+      if(weekPlan[date]?.meals?.[Number(idx)] && v?.title){
+        weekPlan[date].meals[Number(idx)][1]=v.title;
+        weekPlan[date].meals[Number(idx)][2]=v.meta||'spontan geändert';
+      }
+    });
+  }catch(e){}
+}
+function savePlanOverride(date,index,title,meta){
+  let o={}; try{o=JSON.parse(localStorage.getItem('kochen_plan_overrides')||'{}')}catch(e){}
+  o[`${date}|${index}`]={title,meta};
+  localStorage.setItem('kochen_plan_overrides',JSON.stringify(o));
+}
+function changeMealButton(date,index){
+  return `<button onclick="openMealChanger('${date}',${index})" style="margin-top:8px;padding:9px 12px;border:1px solid #b9a86c;border-radius:13px;background:#fff8df;color:#3c3520;font-weight:800">Gericht ändern</button>`;
+}
+function openMealChanger(date,index){
+  const day=weekPlan[date], meal=day?.meals?.[index]; if(!meal)return;
+  const phase=phaseCode(day.phase), current=plainRecipeTitle(meal[1]);
+  const candidates=(recipeRows||[]).filter(r=>!phase||r.phase===phase).sort((a,b)=>(a.source_page||'999').localeCompare(b.source_page||'999',undefined,{numeric:true}));
+  const overlay=document.createElement('div'); overlay.id='mealChanger';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(650px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px;max-height:92vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><div class="eyebrow">SPONTAN ÄNDERN · ${esc(day.phase)}</div><h2 style="margin:4px 0 0">${esc(meal[0])}</h2><div class="muted">Bisher: ${esc(current)}</div></div><button class="icon" onclick="document.getElementById('mealChanger')?.remove()">×</button></div>
+    <input id="mealChangeSearch" placeholder="Rezept suchen …" style="width:100%;margin:14px 0 10px" oninput="filterMealChoices()">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px"><button class="secondary" onclick="saveSpecialMeal('${date}',${index},'Reste')">Reste</button><button class="secondary" onclick="saveSpecialMeal('${date}',${index},'Außer Haus')">Außer Haus</button><button class="secondary" onclick="saveSpecialMeal('${date}',${index},'Eigene Mahlzeit')">Eigene Mahlzeit</button></div>
+    <div class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Passende Kochbuchrezepte</b><br><span class="muted">Es werden zuerst Rezepte derselben Programmphase gezeigt. Das Originalrezept selbst wird nicht verändert.</span></div></div>
+    <div id="mealChoiceList" class="list" style="margin-top:12px">${candidates.map(r=>`<article class="item meal-choice" data-search="${esc((r.title+' '+(r.source_page||'')).toLowerCase())}" onclick="saveMealChange('${date}',${index},'${r.id}')" style="cursor:pointer"><div class="body"><div class="top"><h2>${esc(r.title)}</h2><span class="pill">S. ${esc(r.source_page||'–')}</span></div><div class="meta">${esc(r.phase||'')} · ${Number(r.original_servings||0).toLocaleString('de-DE')} Portionen</div></div></article>`).join('')}</div>
+  </section>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()}); document.body.appendChild(overlay);
+}
+function filterMealChoices(){
+  const q=(document.getElementById('mealChangeSearch')?.value||'').trim().toLowerCase();
+  document.querySelectorAll('.meal-choice').forEach(el=>el.style.display=(!q||el.dataset.search.includes(q))?'':'none');
+}
+async function saveSpecialMeal(date,index,title){
+  const meal=weekPlan[date]?.meals?.[index]; if(!meal)return;
+  const mealType=mealTypeForLabel(meal[0]);
+  if(householdId){ await sb.from('meal_plan_items').delete().eq('household_id',householdId).eq('meal_date',date).eq('meal_type',mealType); }
+  weekPlan[date].meals[index][1]=title; weekPlan[date].meals[index][2]='spontan geändert'; savePlanOverride(date,index,title,'spontan geändert');
+  document.getElementById('mealChanger')?.remove(); await refreshSmartShopping(false); await loadRows(false);
+}
+async function saveMealChange(date,index,recipeId){
+  const r=recipeRows.find(x=>x.id===recipeId), meal=weekPlan[date]?.meals?.[index]; if(!r||!meal)return;
+  const mealType=mealTypeForLabel(meal[0]);
+  if(householdId){
+    const {error:delErr}=await sb.from('meal_plan_items').delete().eq('household_id',householdId).eq('meal_date',date).eq('meal_type',mealType); if(delErr){alert('Änderung konnte nicht vorbereitet werden: '+delErr.message);return;}
+    const {error}=await sb.from('meal_plan_items').insert({household_id:householdId,meal_date:date,meal_type:mealType,recipe_id:r.id,batch_multiplier:1,status:'PLANNED',notes:'Spontan in der App geändert'}); if(error){alert('Gericht konnte nicht gespeichert werden: '+error.message);return;}
+  }
+  weekPlan[date].meals[index][1]=r.title; weekPlan[date].meals[index][2]=`spontan geändert · Kochbuch S. ${r.source_page||'–'}`; savePlanOverride(date,index,r.title,weekPlan[date].meals[index][2]);
+  document.getElementById('mealChanger')?.remove(); await refreshSmartShopping(false); await loadRows(false);
+}
+
 function nutritionForDay(day){
   const date=dayKeyFor(day);
   const result={
@@ -494,9 +559,11 @@ const weekPlan = {
   }
 };
 
+loadPlanOverrides();
+
 function renderToday(){
   const todayIso=new Date().toLocaleDateString('en-CA');
-  const d=weekPlan[todayIso] || weekPlan['2026-09-02'];
+  const d=weekPlan[todayIso] || weekPlan[Object.keys(weekPlan).sort().at(-1)];
   const prepHtml=(d.preps||[]).length ? `
     <section style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:8px">VORBEREITUNG</div>
@@ -521,7 +588,7 @@ function renderToday(){
         <div class="top"><h2>${m[0]} · ${m[1]}</h2><span class="pill">${d.phase}</span></div>
         <div class="meta">${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</div>
         ${splitMeta(todayIso,m)}
-        <button onclick="openPortionSplit('${todayIso}',${i})" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">So aufteilen</button>
+        <button onclick="openPortionSplit('${todayIso}',${i})" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">So aufteilen</button>${changeMealButton(todayIso,i)}
       </div></article>`}).join('')}
     </section>
 
@@ -579,7 +646,7 @@ function renderPlan(){
       ${d.meals.map((m,i)=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<div style="padding:10px 0;border-bottom:1px solid #e7e1d5">
         <p class="desc" style="margin:0"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</span></p>
         ${splitMeta(planDay,m)}
-        <button onclick="openPortionSplit('${planDay}',${i})" style="margin-top:8px;padding:9px 12px;border:1px solid #294936;border-radius:13px;background:#fffdf7;color:#294936;font-weight:700">So aufteilen</button>
+        <button onclick="openPortionSplit('${planDay}',${i})" style="margin-top:8px;padding:9px 12px;border:1px solid #294936;border-radius:13px;background:#fffdf7;color:#294936;font-weight:700">So aufteilen</button>${changeMealButton(planDay,i)}
       </div>`}).join('')}
       ${(d.preps||[]).map(x=>`<div style="height:10px"></div>${prepCard(x[0],x[1]||'',`${x[2]}${timeMetaFor(x[0])?` · ${timeMetaFor(x[0])}`:''}`)}`).join('')}
       ${d.note?`<div class="meta" style="margin-top:10px">${d.note}</div>`:''}
@@ -2124,6 +2191,10 @@ async function loadRows(doRefresh=true){
   substitutionPrefs=prefData||[];
   mealSubstitutions=subData||[];
   if(invData) inventoryRows=invData;
+
+  const {data:recipeDataRows,error:recipeLoadError}=await sb.from('recipes').select('id,title,phase,source_page,original_servings,notes').eq('household_id',householdId).order('source_page',{ascending:true});
+  recipeRows=recipeLoadError?[]:(recipeDataRows||[]);
+  if(recipeLoadError) msg='Rezepte konnten nicht geladen werden: '+recipeLoadError.message;
 
   const {data,error}=await sb
     .from('shopping_items')
