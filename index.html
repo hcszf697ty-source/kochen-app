@@ -1713,12 +1713,56 @@ function airfryerAdaptationText(db){
 
 let originalCookRecipeId=null;
 let originalCookStep=0;
+let originalCookServings=null;
+let originalCookMultiplier=1;
+let originalCookToken=null;
+
 function startOriginalCook(id){
   const db=recipeRows.find(x=>x.id===id);
   if(!db) return;
   const steps=dbRecipeSource(db)?.original_steps||[];
   if(!steps.length){ alert('Für dieses Rezept sind keine Zubereitungsschritte gespeichert.'); return; }
-  originalCookRecipeId=id; originalCookStep=0; renderOriginalCookMode();
+
+  const original=Number(db.original_servings||0);
+  const overlay=document.createElement('div');
+  overlay.id='originalPortionStart';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(620px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><div><div class="eyebrow">VOR DEM KOCHEN</div><h2 style="margin:4px 0 0">${esc(db.title)}</h2></div><button class="icon" onclick="document.getElementById('originalPortionStart')?.remove()">×</button></div>
+    <section class="notice" style="margin-top:16px;background:#edf3e9;border-color:#d7e2d0"><div>${original?`<b>Kochbuchrezept:</b> ${original.toLocaleString('de-DE')} Portionen<br>`:'<b>Kochbuch:</b> keine feste Portionszahl angegeben<br>'}<span class="muted">Die hier gewählte Menge steuert die Vorratsabbuchung nach dem Kochen.</span></div></section>
+    ${original?`<label style="display:block;margin-top:14px">Ich koche für<input id="originalCookServingsInput" type="number" min="0.5" step="0.5" value="${original}" style="width:100%"></label><div class="meta">Alle Vorratsmengen werden mit dem Faktor <span id="originalCookFactorPreview">1</span> gegenüber der Buchmenge verrechnet.</div>`:`<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>1 Rezeptmenge</b><br><span class="muted">Da das Kochbuch keine Portionszahl nennt, kann die App die Zutaten nicht zuverlässig auf eine Wunsch-Portionszahl skalieren. Die tatsächliche Ausbeute erfasst du am Ende.</span></div></section>`}
+    <button class="primary" style="margin-top:16px;width:100%" onclick="confirmOriginalCookStart('${id}')">Kochmodus starten</button>
+  </section>`;
+  if(original){
+    const input=overlay.querySelector('#originalCookServingsInput');
+    input?.addEventListener('input',()=>{
+      const n=Number(input.value||original);
+      const el=overlay.querySelector('#originalCookFactorPreview');
+      if(el) el.textContent=(n/original).toLocaleString('de-DE',{maximumFractionDigits:2});
+    });
+  }
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+  document.body.appendChild(overlay);
+}
+
+function confirmOriginalCookStart(id){
+  const db=recipeRows.find(x=>x.id===id);
+  if(!db) return;
+  const original=Number(db.original_servings||0);
+  if(original){
+    const n=Number(document.getElementById('originalCookServingsInput')?.value||original);
+    if(!Number.isFinite(n)||n<=0){alert('Bitte eine gültige Portionszahl eingeben.');return;}
+    originalCookServings=n;
+    originalCookMultiplier=n/original;
+  }else{
+    originalCookServings=null;
+    originalCookMultiplier=1;
+  }
+  originalCookToken=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());
+  document.getElementById('originalPortionStart')?.remove();
+  originalCookRecipeId=id;
+  originalCookStep=0;
+  renderOriginalCookMode();
 }
 function setOriginalCookStep(n){
   const db=recipeRows.find(x=>x.id===originalCookRecipeId);
@@ -1729,8 +1773,46 @@ function setOriginalCookStep(n){
 function exitOriginalCook(){
   const id=originalCookRecipeId;
   originalCookRecipeId=null;
+  originalCookStep=0;
+  originalCookServings=null;
+  originalCookMultiplier=1;
+  originalCookToken=null;
   recipeOpen=id;
   renderRecipes();
+}
+
+async function finishOriginalCook(){
+  const db=recipeRows.find(x=>x.id===originalCookRecipeId);
+  if(!db) return exitOriginalCook();
+  const original=Number(db.original_servings||0);
+  const defaultYield=originalCookServings ?? (original||'');
+  let y=prompt('Wie viele Teller/Portionen hat die Kochrunde tatsächlich ergeben?',defaultYield);
+  if(y===null) return;
+  let p=prompt('Wie viele Portionen bleiben nach dem Essen übrig? Diese werden als fertige Mahlzeit gespeichert.','0');
+  if(p===null) return;
+  const yieldValue=y.trim()===''?null:Number(y.replace(',','.'));
+  const remainValue=p.trim()===''?null:Number(p.replace(',','.'));
+  if(yieldValue!==null && (!Number.isFinite(yieldValue)||yieldValue<0)){alert('Bitte eine gültige Portionszahl für die Ausbeute eingeben.');return;}
+  if(remainValue!==null && (!Number.isFinite(remainValue)||remainValue<0)){alert('Bitte eine gültige Restmenge eingeben.');return;}
+
+  const token=originalCookToken||(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());
+  const {error}=await sb.rpc('consume_recipe_v2',{
+    p_recipe_id:db.id,
+    p_cook_token:token,
+    p_multiplier:originalCookMultiplier||1,
+    p_yield_portions:yieldValue,
+    p_portions_remaining:remainValue,
+    p_excluded_food_ids:[]
+  });
+  if(error){
+    alert('Die Kochrunde wurde nicht im Vorrat verbucht: '+error.message);
+    return;
+  }
+  await loadInventory();
+  const id=originalCookRecipeId;
+  originalCookRecipeId=null; originalCookStep=0; originalCookServings=null; originalCookMultiplier=1; originalCookToken=null;
+  recipeOpen=id; activeTab='recipes'; renderRecipes();
+  alert('Kochrunde gespeichert. Vorrat und übrige Portionen wurden aktualisiert.');
 }
 function renderOriginalCookMode(){
   const db=recipeRows.find(x=>x.id===originalCookRecipeId);
@@ -1752,10 +1834,10 @@ function renderOriginalCookMode(){
       <h2 class="cook-step-title">${esc(s.title||`Schritt ${originalCookStep+1}`)}</h2>
       <p class="cook-instruction">${esc(text)}</p>
     </div></section>
-    <section class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Original aus dem Kochbuch</b><br><span class="muted">Keine Zutaten, Zeiten oder Geräteeinstellungen ergänzt. ${recipePageLabel(db)}.</span></div></section>
+    <section class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>${originalCookServings?`Du kochst ${Number(originalCookServings).toLocaleString('de-DE')} Portionen`:'Du kochst 1 Rezeptmenge'}</b><br><span class="muted">${Number(db.original_servings||0)?`Original: ${Number(db.original_servings).toLocaleString('de-DE')} Portionen · Faktor ${Number(originalCookMultiplier||1).toLocaleString('de-DE',{maximumFractionDigits:2})}. `:''}Original aus dem Kochbuch · ${recipePageLabel(db)}.</span></div></section>
     <div style="display:grid;grid-template-columns:${originalCookStep===0?'1fr':'1fr 2fr'};gap:12px;margin-top:18px">
       ${originalCookStep>0?`<button onclick="setOriginalCookStep(originalCookStep-1)" style="padding:18px;border:1px solid #d9d7ca;border-radius:20px;background:#fffdf8;font-size:18px;font-weight:700">Zurück</button>`:''}
-      <button onclick="${originalCookStep<steps.length-1?'setOriginalCookStep(originalCookStep+1)':'exitOriginalCook()'}" style="padding:18px;border:0;border-radius:20px;background:#183425;color:white;font-size:20px;font-weight:800">${originalCookStep<steps.length-1?'Weiter':'Fertig'}</button>
+      <button onclick="${originalCookStep<steps.length-1?'setOriginalCookStep(originalCookStep+1)':'finishOriginalCook()'}" style="padding:18px;border:0;border-radius:20px;background:#183425;color:white;font-size:20px;font-weight:800">${originalCookStep<steps.length-1?'Weiter':'Fertig & Vorrat buchen'}</button>
     </div>
   </main>`;
 }
