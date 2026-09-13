@@ -686,6 +686,70 @@ function plannerMultiplier(recipe,date,type){
   const servings=Number(recipe?.original_servings||0);
   return servings>0?Math.max(.01,plannerPortionsFor(date,type)/servings):1;
 }
+
+// Gemüse-Meal-Prep: robuste Gemüse werden für 2–3 Tage gebündelt,
+// empfindliche Zutaten und Protein bleiben bewusst frisch.
+const vegPrepRules=[
+  {keys:['karotte','möhre','moehre','sellerie','pastinake','kohlrabi','rote bete','weißkohl','weisskohl','rotkohl'],life:3,label:'gut vorbereitbar'},
+  {keys:['paprika','zwiebel','schalotte','frühlingszwiebel','fruehlingszwiebel','lauch','porree','brokkoli','blumenkohl'],life:3,label:'gut vorbereitbar'},
+  {keys:['zucchini','aubergine','champignon','pilz'],life:2,label:'besser nur 1–2 Tage vorab'},
+  {keys:['gurke','tomate','salat','feldsalat','rucola','spinat','avocado','spargel'],life:0,label:'frisch vorbereiten'}
+];
+const freshProteinKeys=['hähnchen','haehnchen','pute','rind','schwein','kalb','lachs','fisch','thunfisch','matjes','ei','eier','tofu','feta','mozzarella','käse','kaese','hüttenkäse','huettenkaese'];
+function prepRuleForFood(name){
+  const n=String(name||'').toLowerCase();
+  for(const r of vegPrepRules) if(r.keys.some(k=>n.includes(k))) return r;
+  return null;
+}
+function isFreshProteinFood(name){const n=String(name||'').toLowerCase();return freshProteinKeys.some(k=>n.includes(k));}
+function scaledIngredientRows(recipe,date){
+  const mult=plannerMultiplier(recipe,date,'DINNER');
+  return (recipe?.recipe_ingredients||[]).filter(x=>!x.optional).map(x=>({
+    name:x.foods?.name||'', quantity:x.quantity==null?null:Number(x.quantity)*mult, unit:x.unit||''
+  }));
+}
+function formatPrepQty(q,u){
+  if(q==null||!isFinite(q)) return '';
+  const rounded=Math.abs(q-Math.round(q))<.01?Math.round(q):Math.round(q*10)/10;
+  return `${rounded}${u?' '+u:''}`;
+}
+function buildVegetablePrepPlan(draft=smartWeekDraft){
+  if(!draft?.days?.length)return [];
+  const blocks=[];
+  // Zwei Blöcke pro Woche: Start–Tag 3 und Tag 4–7. So bleibt die Qualität besser als bei 7-Tage-Prep.
+  const chunks=[draft.days.slice(0,3),draft.days.slice(3,7)].filter(x=>x.length);
+  chunks.forEach((days,idx)=>{
+    const stable=new Map(), fresh=new Map(), proteins=new Set(), uses=[];
+    days.forEach(day=>{
+      const dinner=day.meals.find(m=>m.type==='DINNER')?.recipe;
+      if(!dinner)return;
+      const dayLabel=deDayLabel(day.date);
+      const vegForDay=[];
+      scaledIngredientRows(dinner,day.date).forEach(ing=>{
+        if(isFreshProteinFood(ing.name)){proteins.add(`${dayLabel}: ${ing.name}`);return;}
+        const rule=prepRuleForFood(ing.name); if(!rule)return;
+        const target=rule.life>=2?stable:fresh;
+        const key=`${ing.name}|${ing.unit}`;
+        const cur=target.get(key)||{name:ing.name,unit:ing.unit,quantity:0,hasQty:true,days:new Set(),label:rule.label};
+        if(ing.quantity==null) cur.hasQty=false; else cur.quantity+=ing.quantity;
+        cur.days.add(dayLabel); target.set(key,cur); vegForDay.push(ing.name);
+      });
+      if(vegForDay.length) uses.push({day:dayLabel,recipe:dinner.title,veg:[...new Set(vegForDay)]});
+    });
+    if(!stable.size&&!fresh.size&&!proteins.size)return;
+    const prepDate=idx===0?addDaysIso(days[0].date,-1):addDaysIso(days[0].date,-1);
+    blocks.push({prepDate,range:`${deDayLabel(days[0].date)} – ${deDayLabel(days.at(-1).date)}`,stable:[...stable.values()],fresh:[...fresh.values()],proteins:[...proteins],uses});
+  });
+  return blocks;
+}
+function vegetablePrepPlanHtml(draft=smartWeekDraft){
+  const blocks=buildVegetablePrepPlan(draft);
+  if(!blocks.length)return `<section class="notice"><div><b>Gemüse-Meal-Prep</b><br><span class="muted">Für diese Auswahl lässt sich noch keine sinnvolle gemeinsame Gemüse-Basis ableiten.</span></div></section>`;
+  return `<section class="list"><article class="item"><div class="body"><div class="eyebrow">SMARTES GEMÜSE-MEAL-PREP</div><h2 style="margin:4px 0 6px">Einmal schnippeln, mehrere Abende nutzen</h2><div class="meta">Nur robuste Gemüse werden vorab gebündelt. Protein, Salat und empfindliche Gemüse bleiben frisch.</div>${blocks.map(b=>`<div style="margin-top:16px;padding-top:14px;border-top:1px solid #e7e1d5"><div class="top"><h3 style="margin:0">${esc(deDayLabel(b.prepDate))} vorbereiten</h3><span class="pill">für ${esc(b.range)}</span></div>${b.stable.length?`<div style="margin-top:10px"><b>Jetzt vorbereiten</b>${b.stable.map(x=>`<div class="meta">• ${x.hasQty?esc(formatPrepQty(x.quantity,x.unit))+' ':''}${esc(x.name)} <span class="muted">→ ${esc([...x.days].join(', '))}</span></div>`).join('')}</div>`:''}${b.fresh.length?`<div style="margin-top:10px"><b>Später frisch machen</b>${b.fresh.map(x=>`<div class="meta">• ${esc(x.name)} <span class="muted">(${esc(x.label)})</span></div>`).join('')}</div>`:''}${b.proteins.length?`<div style="margin-top:10px"><b>Protein frisch dazu</b>${b.proteins.map(x=>`<div class="meta">• ${esc(x)}</div>`).join('')}</div>`:''}${b.uses.length?`<div style="margin-top:10px"><b>Wird verwendet für</b>${b.uses.map(u=>`<div class="meta">• ${esc(u.day)}: ${esc(u.recipe)} · ${esc(u.veg.join(', '))}</div>`).join('')}</div>`:''}</div>`).join('')}</div></article></section>`;
+}
+function savedVegetablePrepHtml(){
+  try{const raw=localStorage.getItem('kochen_veg_prep_plan');if(!raw)return '';const data=JSON.parse(raw);if(!data?.html)return '';return `<section style="margin:14px 0"><div class="eyebrow" style="margin-bottom:8px">MEAL-PREP</div>${data.html}</section>`;}catch(e){return ''}
+}
 function plannerMealMeta(day,meal,index){
   const r=meal.recipe, n=r?nutritionForTitle(r.title):null;
   if(meal.mealPrepMissing) return 'Kein separates Kochen geplant · dafür muss am Vorabend eine zusätzliche Portion eingeplant werden';
@@ -712,6 +776,7 @@ function smartWeekDraftHtml(){
 }
 function refreshSmartWeekOverlay(){
   const el=document.getElementById('smartWeekResults'); if(el)el.innerHTML=smartWeekDraftHtml();
+  const prep=document.getElementById('smartVegPrepResults'); if(prep)prep.innerHTML=vegetablePrepPlanHtml();
 }
 function cycleSmartSuggestion(dayIndex,mealIndex){
   const day=smartWeekDraft?.days?.[dayIndex], meal=day?.meals?.[mealIndex]; if(!day||!meal||meal.leftover||meal.mealPrepMissing)return;
@@ -735,6 +800,7 @@ function openSmartWeekPlanner(){
     <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Maximal einmal am Tag kochen</b><br><span class="muted">Mittagessen wird konsequent aus dem Abendessen des Vortags eingeplant. Die Abendportionen werden automatisch erhöht. Das Mittagessen wird beim Einkauf nicht ein zweites Mal als neues Rezept berechnet. Zusätzlich: kcal/Protein · Abnehmphase · glutenfrei · Vorrat · Ausschlüsse · möglichst wenig Wiederholungen.</span></div></div>
     <label style="display:block;margin-top:14px">Wochenstart <input id="smartWeekStart" type="date" value="${start}" style="width:100%" onchange="generateSmartWeekDraft(this.value);refreshSmartWeekOverlay()"></label>
     <div id="smartWeekResults" class="list" style="margin-top:14px">${smartWeekDraftHtml()}</div>
+    <div id="smartVegPrepResults" style="margin-top:14px">${vegetablePrepPlanHtml()}</div>
     <div style="display:flex;gap:10px;position:sticky;bottom:-20px;background:#fffdf7;padding:14px 0 2px"><button class="secondary" style="flex:1" onclick="generateSmartWeekDraft(document.getElementById('smartWeekStart').value);refreshSmartWeekOverlay()">Neu berechnen</button><button class="primary" style="flex:1.4" onclick="applySmartWeekDraft()">Diese Woche übernehmen</button></div>
   </section>`;
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.appendChild(overlay);
@@ -760,9 +826,10 @@ async function applySmartWeekDraft(){
     day.meals=d.meals.filter(m=>m.recipe).map((m,mi)=>[mealLabelFromType(m.type,d.date),m.recipe?.title||'–',plannerMealMeta(d,m,di),m.recipe?.id||null]);
   });
   planDay=start;
+  try{localStorage.setItem('kochen_veg_prep_plan',JSON.stringify({start,end,html:vegetablePrepPlanHtml(smartWeekDraft),savedAt:new Date().toISOString()}));}catch(e){}
   document.getElementById('smartWeekPlanner')?.remove();
   await refreshSmartShopping(false);await loadRows(false);activeTab='plan';renderApp();
-  alert('Woche gespeichert. Mittag ist als Meal-Prep vom Vorabend eingeplant; der Einkauf zählt die Zutaten nur beim Abendessen.');
+  alert('Woche gespeichert. Mittag kommt aus dem Vorabend-Meal-Prep. Zusätzlich wurde ein Gemüse-Prep-Plan für mehrere Tage gespeichert.');
 }
 
 function nutritionForDay(day){
@@ -949,6 +1016,7 @@ function renderPlan(){
       <div><b>09.09.–14.09.</b><br><span class="muted">Meal Prep: Abendessen → 2 Erwachsenenportionen für den nächsten Mittag</span></div>
     </section>
     <button class="primary" onclick="openSmartWeekPlanner()" style="width:100%;margin:0 0 16px;padding:14px 16px;border-radius:16px;font-weight:900">✨ Woche intelligent planen</button>
+    ${savedVegetablePrepHtml()}
 
     <div class="eyebrow" style="margin:4px 0 7px">AKTUELLER PLAN · 09.–14.09.</div>
     <section style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:4px 0 14px">
