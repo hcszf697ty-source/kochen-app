@@ -1737,10 +1737,15 @@ function renderRecipes(){
 }
 
 function renderRecipeDetail(key){
-  const db=recipeRows.find(x=>x.id===key);
-  // Alte, fest hinterlegte Karten bleiben als Fallback für bestehende Plan-Links erhalten.
+  // Plan-Links verwenden teilweise noch alte Kurzschlüssel (z. B. "linsencurry").
+  // Diese werden zuerst auf das vollständige Supabase-Rezept gemappt, damit immer
+  // die komplette Rezeptkarte mit Originalzubereitung und Geräte-Kochmodus erscheint.
+  const legacy=recipeData[key];
+  const db=recipeRows.find(x=>x.id===key) || (legacy ? recipeRows.find(x=>x.title===legacy.title) : null);
+  // Nur wenn die Rezeptdatenbank wirklich noch nicht geladen wurde, bleibt die alte
+  // Zutatenkarte als Notfall-Fallback erhalten.
   if(!db){
-    const r=recipeData[key];
+    const r=legacy;
     if(!r){ recipeOpen=null; return renderRecipes(); }
     document.getElementById('app').innerHTML=`<main class="shell">
     <header><div><div class="eyebrow">${r.phase}</div><h1 style="font-size:38px">${r.title}</h1></div><div class="actions"><button class="icon" onclick="recipeOpen=null;renderRecipes()">←</button></div></header>
