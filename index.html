@@ -199,6 +199,10 @@ function recipeLink(title,key){
 }
 
 
+let bioboxDelivery=null;
+let bioboxItems=[];
+let nutritionDb={};
+
 const nutritionTargets={
   user:{label:'Du',kcalMin:1700,kcalMax:1800,proteinMin:90},
   husband:{label:'Marcel',kcalMin:2200,kcalMax:2300,proteinMin:109}
@@ -228,23 +232,53 @@ function targetCard(){
 
 
 
-// Nährwerte pro Kochbuchportion. Quelle: Kochbuchfotos; Quark = ca.-Angabe der Nutzerin.
-// Zündersuppen bleiben absichtlich offen, weil das Kochbuch keine Nährwerte angibt.
-const recipeNutrition={
-  'Quark mit Beeren':{kcal:300,protein:26,carbs:null,source:'ca.'},
-  'Genießer-Salat':{kcal:480,protein:38,carbs:17,source:'Kochbuch'},
-  'Sesam-Tofu auf buntem Salat':{kcal:427,protein:24,carbs:27,source:'Kochbuch'},
-  'Lachs mit scharfem Kohlrabi-Karotten-Gemüse':{kcal:434,protein:35,carbs:21,source:'Kochbuch'},
-  'Hähnchen-Sesam-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
-  'Hähnchen mit Sesamkruste auf Tomaten-Gurken-Salat':{kcal:489,protein:47,carbs:24,source:'Kochbuch'},
-  'Auberginen-Hack-Auflauf':{kcal:486,protein:48,carbs:20,source:'Kochbuch'},
-  'Gebackener Feta auf Paprika-Tomaten':{kcal:401,protein:36,carbs:25,source:'Kochbuch'},
-  'Schlemmerfilet auf buntem Gemüse':{kcal:346,protein:38,carbs:17,source:'Kochbuch'},
-  'Toast mit Schinken & Ei':{kcal:423,protein:25,carbs:39,source:'Kochbuch'},
-  'Auberginen gefüllt mit Linsencurry':{kcal:521,protein:21,carbs:60,source:'Kochbuch'},
-  'Geschmortes Rindfleisch chinesische Art':{kcal:538,protein:38,carbs:63,source:'Kochbuch'},
-  'Jägerschnitzel mit Champignons':{kcal:401,protein:41,carbs:26,source:'Kochbuch'}
+// Nährwerte werden aus den verifizierten Supabase-Rezeptnotizen gelesen.
+// Nur Quark mit Beeren bleibt als ausdrücklich vom Haushalt angegebener ca.-Wert hinterlegt.
+const nutritionManualFallback={
+  'Quark mit Beeren':{kcal:300,protein:26,carbs:null,source:'ca. Nutzerangabe'}
 };
+function normalizeNutritionTitle(t){
+  return String(t||'').toLowerCase().replace(/&/g,'und').replace(/[–—-]/g,' ').replace(/\s+/g,' ').trim();
+}
+function parseNutritionFromNotes(notes){
+  const text=String(notes||'');
+  const get=(patterns)=>{
+    for(const re of patterns){const m=text.match(re); if(m) return Number(String(m[1]).replace(',','.'));}
+    return null;
+  };
+  const kcal=get([/(\d+(?:[.,]\d+)?)\s*kcal/i]);
+  const protein=get([/(\d+(?:[.,]\d+)?)\s*g\s*(?:Protein|Eiweiß)/i,/(?:Protein|Eiweiß)\s*[:·-]?\s*(\d+(?:[.,]\d+)?)\s*g/i]);
+  const carbs=get([/(\d+(?:[.,]\d+)?)\s*g\s*(?:Kohlenhydrate|KH)/i,/(?:Kohlenhydrate|KH)\s*[:·-]?\s*(\d+(?:[.,]\d+)?)\s*g/i]);
+  if(kcal==null && protein==null && carbs==null) return null;
+  return {kcal,protein,carbs,source:'Kochbuch/Supabase'};
+}
+function rebuildNutritionDb(){
+  const out={};
+  recipeRows.forEach(r=>{
+    const n=parseNutritionFromNotes(r.notes);
+    if(n) out[normalizeNutritionTitle(r.title)]=n;
+  });
+  Object.entries(nutritionManualFallback).forEach(([title,n])=>out[normalizeNutritionTitle(title)]=n);
+  nutritionDb=out;
+}
+function nutritionForTitle(title){
+  const raw=plainRecipeTitle(title);
+  const key=normalizeNutritionTitle(raw);
+  if(nutritionDb[key]) return nutritionDb[key];
+  // Nur echte Schreibvarianten auf dasselbe Rezept abbilden – keine Nährwerte erfinden.
+  const aliases={
+    'hähnchen sesam salat':'hähnchen mit sesamkruste auf tomaten gurkensalat',
+    'hähnchen mit sesamkruste auf tomaten gurken salat':'hähnchen mit sesamkruste auf tomaten gurkensalat',
+    'vollkornbrot mit ei und schinken':'vollkornbrot mit ei und schinken',
+    'vollkornbrot mit ei & schinken':'vollkornbrot mit ei und schinken'
+  };
+  return nutritionDb[normalizeNutritionTitle(aliases[key]||'')]||null;
+}
+function recipeServingsForTitle(title){
+  const key=normalizeNutritionTitle(title);
+  const r=recipeRows.find(x=>normalizeNutritionTitle(x.title)===key);
+  return r?.original_servings==null?null:Number(r.original_servings);
+}
 
 const recipeDefaultCooked={
   'Quark mit Beeren':2,
@@ -280,20 +314,20 @@ function storedPortion(date,meal,person){
   return portionRows.find(r=>`${r.meal_date}|${r.meal_type}|${r.recipe_title}`===key && r.person_key===person)?.planned_portions;
 }
 function suggestedAdultTotal(meal,cooked){
+  // Ernährungscheck basiert auf tatsächlich gegessenen Portionen: standardmäßig 1 Portion pro Erwachsenem.
+  return Math.min(Number(cooked||2),2);
+}
+function suggestedCooked(meal){
+  const title=plainRecipeTitle(meal[1]);
   const label=(meal[0]||'').toLowerCase();
   const meta=(meal[2]||'').toLowerCase();
-  if(label.includes('frühstück') || label.includes('mittag') || meta.includes('2 erwachsene') || meta.includes('2 restportionen')) return Math.min(Number(cooked||2),2);
-  return Math.min(Number(cooked||2.3),2.3);
+  if(label.includes('frühstück') || label.includes('mittag')) return 2;
+  const book=recipeServingsForTitle(title) ?? recipeDefaultCooked[title] ?? 4;
+  const lunchExtra=/2\s*(?:lunch|erwachsenen|rest)portion/.test(meta)?2:0;
+  return Math.max(2,Number(book)+lunchExtra);
 }
 function suggestedSplit(meal){
-  const title=plainRecipeTitle(meal[1]);
-  const cooked=recipeDefaultCooked[title] ?? 2;
-  const adultTotal=suggestedAdultTotal(meal,cooked);
-  const userMid=(nutritionTargets.user.kcalMin+nutritionTargets.user.kcalMax)/2;
-  const marcelMid=(nutritionTargets.husband.kcalMin+nutritionTargets.husband.kcalMax)/2;
-  const user=adultTotal*(userMid/(userMid+marcelMid));
-  const marcel=adultTotal-user;
-  return {cooked:Number(cooked),user:Number(user.toFixed(2)),marcel:Number(marcel.toFixed(2))};
+  return {cooked:suggestedCooked(meal),user:1,marcel:1};
 }
 function splitForMeal(date,meal){
   const s=suggestedSplit(meal);
@@ -315,7 +349,7 @@ function openPortionSplit(date,index){
   const day=weekPlan[date], meal=day?.meals?.[index]; if(!meal)return;
   const title=plainRecipeTitle(meal[1]);
   const s=splitForMeal(date,meal);
-  const n=recipeNutrition[title];
+  const n=nutritionForTitle(title);
   const overlay=document.createElement('div');
   overlay.id='portionSplitEditor';
   overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
@@ -350,7 +384,7 @@ function openPortionSplit(date,index){
 }
 function updateSplitPreview(date,index){
   const meal=weekPlan[date]?.meals?.[index]; if(!meal)return;
-  const title=plainRecipeTitle(meal[1]), n=recipeNutrition[title];
+  const title=plainRecipeTitle(meal[1]), n=nutritionForTitle(title);
   const cooked=Number(document.getElementById('splitCooked')?.value||0);
   const u=Number(document.getElementById('splitUser')?.value||0);
   const m=Number(document.getElementById('splitMarcel')?.value||0);
@@ -459,54 +493,65 @@ async function saveMealChange(date,index,recipeId){
 function nutritionForDay(day){
   const date=dayKeyFor(day);
   const result={
-    user:{kcal:0,protein:0,carbs:0,carbsKnown:true},
-    husband:{kcal:0,protein:0,carbs:0,carbsKnown:true},
+    user:{kcal:0,protein:0,carbs:0,kcalKnown:true,proteinKnown:true,carbsKnown:true,knownMeals:0},
+    husband:{kcal:0,protein:0,carbs:0,kcalKnown:true,proteinKnown:true,carbsKnown:true,knownMeals:0},
     missing:[]
   };
   (day.meals||[]).forEach(meal=>{
-    const title=plainRecipeTitle(meal[1]), n=recipeNutrition[title];
+    const title=plainRecipeTitle(meal[1]);
+    // Reste / außer Haus / eigene Mahlzeit werden nicht mit Fantasiewerten gerechnet.
+    if(/^(reste?|rest \/ außer haus|außer haus|eigene mahlzeit)$/i.test(title)){result.missing.push(title);return;}
+    const n=nutritionForTitle(title);
     if(!n){result.missing.push(title);return;}
     const split=splitForMeal(date,meal);
     for(const [person,portions] of [['user',split.user],['husband',split.marcel]]){
-      result[person].kcal+=n.kcal*portions;
-      result[person].protein+=n.protein*portions;
-      if(n.carbs==null)result[person].carbsKnown=false;
-      else result[person].carbs+=n.carbs*portions;
+      if(n.kcal==null) result[person].kcalKnown=false; else result[person].kcal+=n.kcal*portions;
+      if(n.protein==null) result[person].proteinKnown=false; else result[person].protein+=n.protein*portions;
+      if(n.carbs==null) result[person].carbsKnown=false; else result[person].carbs+=n.carbs*portions;
+      result[person].knownMeals++;
     }
   });
   result.missing=[...new Set(result.missing)];
   return result;
 }
-function nutritionStatus(personKey,x){
+function nutritionStatus(personKey,x,incomplete=false){
   const t=nutritionTargets[personKey];
-  const kcalOk=x.kcal>=t.kcalMin && x.kcal<=t.kcalMax;
-  const proteinOk=x.protein>=t.proteinMin;
+  const kcalOk=x.kcalKnown && !incomplete && x.kcal>=t.kcalMin && x.kcal<=t.kcalMax;
+  const proteinOk=x.proteinKnown && !incomplete && x.protein>=t.proteinMin;
   return {kcalOk,proteinOk,ok:kcalOk&&proteinOk};
 }
 function nutritionCheckCard(day){
   const n=nutritionForDay(day);
-  const u=nutritionStatus('user',n.user), m=nutritionStatus('husband',n.husband);
-  const incomplete=n.missing.length>0;
+  const incomplete=n.missing.length>0 || !n.user.kcalKnown || !n.user.proteinKnown || !n.husband.kcalKnown || !n.husband.proteinKnown;
+  const u=nutritionStatus('user',n.user,incomplete), m=nutritionStatus('husband',n.husband,incomplete);
   const line=(key,x,s)=>{
     const t=nutritionTargets[key], label=t.label;
-    const kcalTxt=`${Math.round(x.kcal)} / ${t.kcalMin}–${t.kcalMax} kcal`;
-    const protTxt=`${Math.round(x.protein)} / ≥${t.proteinMin} g Protein`;
+    const prefix=incomplete?'Zwischensumme: ':'';
+    const kcalTxt=x.kcalKnown?`${Math.round(x.kcal)} / ${t.kcalMin}–${t.kcalMax} kcal`:'kcal offen';
+    const protTxt=x.proteinKnown?`${Math.round(x.protein)} / ≥${t.proteinMin} g Protein`:'Protein offen';
     const carbTxt=key==='husband'?(x.carbsKnown?` · ${Math.round(x.carbs)} g KH`:' · KH teilweise offen'):'';
-    return `<div style="margin-top:8px"><b>${label}</b><br><span class="muted">${kcalTxt} ${s.kcalOk?'✓':'⚠'} · ${protTxt} ${s.proteinOk?'✓':'⚠'}${carbTxt}</span></div>`;
+    const marker=incomplete?'':` ${s.kcalOk?'✓':'⚠'}`;
+    const pmarker=incomplete?'':` ${s.proteinOk?'✓':'⚠'}`;
+    return `<div style="margin-top:8px"><b>${label}</b><br><span class="muted">${prefix}${kcalTxt}${marker} · ${protTxt}${pmarker}${carbTxt}</span></div>`;
   };
+  const statusText=incomplete?'· unvollständig – keine Zielbewertung':(u.ok&&m.ok?'✓':'· Anpassung nötig');
   return `<section class="notice" style="margin-top:14px;background:${incomplete?'#fff8e8':(u.ok&&m.ok?'#edf3e9':'#fff8e8')};border-color:${incomplete?'#ead39a':'#d7e2d0'}">
-    <div><b>Ernährungscheck ${incomplete?'· teilweise offen':(u.ok&&m.ok?'✓':'· Anpassung nötig')}</b>
+    <div><b>Ernährungscheck ${statusText}</b>
       ${line('user',n.user,u)}
       ${line('husband',n.husband,m)}
-      ${incomplete?`<div class="meta" style="margin-top:8px">Noch ohne verlässliche Nährwerte: ${n.missing.join(', ')}. Diese Mahlzeiten sind in den Summen noch nicht enthalten.</div>`:''}
-      <div class="meta" style="margin-top:8px">Die Werte verwenden jetzt eure Aufteilung je Mahlzeit. Tippe bei einem Gericht auf „So aufteilen“, um sie anzupassen.</div>
+      ${incomplete?`<div class="meta" style="margin-top:8px"><b>Nicht eingerechnet:</b> ${n.missing.length?n.missing.join(', '):'mindestens ein Nährwert ist im Original nicht sicher lesbar'}. Solange Daten fehlen, wird bewusst kein „zu wenig/zu viel“ für den ganzen Tag behauptet.</div>`:''}
+      <div class="meta" style="margin-top:8px">Berechnung: verifizierte Nährwerte aus Supabase × deine gespeicherte Portionsaufteilung. Standard ist 1 Buchportion pro Erwachsenem.</div>
     </div>
   </section>`;
 }
 function nutritionBadge(title){
-  const n=recipeNutrition[title];
+  const n=nutritionForTitle(title);
   if(!n)return '';
-  return `${n.source==='ca.'?'ca. ':''}${n.kcal} kcal · ${n.protein} g Protein${n.carbs!=null?` · ${n.carbs} g KH`:''}`;
+  const bits=[];
+  if(n.kcal!=null)bits.push(`${n.source?.startsWith('ca.')?'ca. ':''}${n.kcal} kcal`);
+  if(n.protein!=null)bits.push(`${n.protein} g Protein`);
+  if(n.carbs!=null)bits.push(`${n.carbs} g KH`);
+  return bits.join(' · ');
 }
 
 const weekPlan = {
@@ -565,7 +610,7 @@ const weekPlan = {
     meals:[
       ['Frühstück','Porridge','schnelles Frühstück aus der Abnehmphase · glutenfreie Haferflocken'],
       ['Mittag außer Haus',recipeLink('Geschmortes Rindfleisch chinesische Art','rindChina'),'vom Vorabend · Ulrike + Marcel'],
-      ['Abend',recipeLink('Jägerschnitzel mit Champignons','jaegerschnitzel'),'Familienabendessen + 2 Lunchportionen für Dienstag · 401 kcal · 41 g Protein · 26 g KH pro Buchportion']
+      ['Abend',recipeLink('Jägerschnitzel mit Champignons','jaegerschnitzel'),'Familienabendessen + 2 Lunchportionen für Dienstag · 401 kcal · 41 g Protein · 16 g KH pro Buchportion']
     ],
     note:'Biokiste kommt heute. Die 700 g Steinchampignons werden für das Jägerschnitzel genutzt; zwei Lunchportionen für Dienstag zurückstellen.',
     preps:[]
@@ -2132,6 +2177,91 @@ function fridayManualHtml(){
 }
 
 
+function isoLocal(d){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+function nextMondayIso(){
+  const d=new Date(); d.setHours(12,0,0,0);
+  const delta=(8-d.getDay())%7 || 7;
+  // Am Montag selbst zählt die heutige Lieferung; sonst der kommende Montag.
+  if(d.getDay()===1) return isoLocal(d);
+  d.setDate(d.getDate()+delta); return isoLocal(d);
+}
+function datePlus(iso,days){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+days);return isoLocal(d);}
+function isProduceFood(row){
+  const c=String(row.foods?.category||'').toLowerCase();
+  return c.includes('gemüse')||c.includes('obst')||c.includes('kräuter');
+}
+async function loadBiobox(){
+  if(!householdId)return;
+  const monday=nextMondayIso();
+  const {data:dels,error}=await sb.from('deliveries').select('id,household_id,supplier,delivery_date,status,source').eq('household_id',householdId).eq('delivery_date',monday).order('created_at',{ascending:false}).limit(1);
+  if(error){console.warn(error);bioboxDelivery=null;bioboxItems=[];return;}
+  bioboxDelivery=dels?.[0]||null;
+  if(!bioboxDelivery){bioboxItems=[];return;}
+  const {data:items}=await sb.from('delivery_items').select('id,delivery_id,food_id,quantity,unit,notes,foods(name,category,default_unit)').eq('delivery_id',bioboxDelivery.id).order('id');
+  bioboxItems=items||[];
+}
+async function ensureBiobox(){
+  if(bioboxDelivery)return bioboxDelivery;
+  const {data,error}=await sb.from('deliveries').insert({household_id:householdId,supplier:'Biokiste',delivery_date:nextMondayIso(),status:'planned',source:'App · Mittwochsplanung'}).select('id,household_id,supplier,delivery_date,status,source').single();
+  if(error){alert('Biokiste konnte nicht angelegt werden: '+error.message);return null;}
+  bioboxDelivery=data; return data;
+}
+function bioboxSuggestedRows(){
+  const monday=nextMondayIso(), sunday=datePlus(monday,6);
+  const existing=new Set(bioboxItems.map(x=>x.food_id));
+  return rows.filter(r=>!r.checked && isProduceFood(r) && r.needed_by && r.needed_by>=monday && r.needed_by<=sunday && !existing.has(r.food_id));
+}
+async function addBioboxSuggestion(foodId,quantity,unit,note='Aus Wochenbedarf vorgeschlagen'){
+  const del=await ensureBiobox(); if(!del)return;
+  const exists=bioboxItems.find(x=>x.food_id===foodId);
+  if(exists){alert('Dieser Artikel ist bereits in der Biokiste.');return;}
+  const q=Number(quantity); const {error}=await sb.from('delivery_items').insert({delivery_id:del.id,food_id:foodId,quantity:Number.isFinite(q)&&q>0?q:null,unit:unit||null,notes:note});
+  if(error){alert('Artikel konnte nicht zur Biokiste hinzugefügt werden: '+error.message);return;}
+  await refreshSmartShopping(false); await loadRows(false);
+}
+async function addCustomBioboxItem(){
+  const name=(document.getElementById('bioFood')?.value||'').trim();
+  const qty=Number(document.getElementById('bioQty')?.value||0);
+  const unit=(document.getElementById('bioUnit')?.value||'').trim();
+  if(!name){alert('Bitte ein Lebensmittel auswählen.');return;}
+  let food=foodOptions.find(f=>String(f.name).toLowerCase()===name.toLowerCase());
+  if(!food){const {data,error}=await sb.from('foods').insert({name,default_unit:unit||null,gluten_free:true}).select('id,name,default_unit,category').single();if(error){alert(error.message);return;}food=data;foodOptions.push(food);}
+  await addBioboxSuggestion(food.id,qty,unit||food.default_unit||null,'Manuell für Biokiste geplant');
+}
+async function removeBioboxItem(id){
+  const {error}=await sb.from('delivery_items').delete().eq('id',id); if(error){alert(error.message);return;}
+  await refreshSmartShopping(false); await loadRows(false);
+}
+async function markBioboxOrdered(){
+  const del=await ensureBiobox(); if(!del)return;
+  const {error}=await sb.from('deliveries').update({status:'ordered',source:'App · Bestellung bestätigt'}).eq('id',del.id);if(error){alert(error.message);return;}
+  await refreshSmartShopping(false); await loadRows(false);
+}
+async function receiveBiobox(){
+  if(!bioboxDelivery||!bioboxItems.length){alert('Für diese Lieferung sind noch keine Artikel gespeichert.');return;}
+  if(!confirm('Biokiste als angekommen einräumen? Die gespeicherten Mengen werden in den Vorrat übernommen.'))return;
+  for(const it of bioboxItems){
+    if(it.quantity==null) continue;
+    const {data:existing}=await sb.from('inventory_items').select('id,quantity,unit').eq('household_id',householdId).eq('food_id',it.food_id).eq('unit',it.unit).limit(1).maybeSingle();
+    if(existing){await sb.from('inventory_items').update({quantity:Number(existing.quantity||0)+Number(it.quantity),quantity_status:'known',last_checked_at:new Date().toISOString()}).eq('id',existing.id);}
+    else{await sb.from('inventory_items').insert({household_id:householdId,food_id:it.food_id,quantity:it.quantity,unit:it.unit,location:'Biokiste / Küche',quantity_status:'known',opened:false,last_checked_at:new Date().toISOString()});}
+  }
+  await sb.from('deliveries').update({status:'received'}).eq('id',bioboxDelivery.id);
+  await refreshSmartShopping(false); alert('Biokiste ist im Vorrat verbucht.'); await loadRows(false);
+}
+async function refreshFridayShopping(){
+  const r=await refreshSmartShopping(true); await loadRows(false);
+  if(r!==null) alert('Einkaufsliste wurde aus Plan, Vorrat, Käufen und Biokiste neu berechnet.');
+}
+function bioboxPanelHtml(){
+  const monday=nextMondayIso();
+  const suggested=bioboxSuggestedRows();
+  const status=bioboxDelivery?.status||'noch nicht angelegt';
+  const items=bioboxItems.map(it=>`<article class="item"><div class="body"><div class="top"><h2>${esc(it.foods?.name||'Artikel')}</h2><span class="pill">${it.quantity==null?'Menge offen':`${Number(it.quantity).toLocaleString('de-DE')} ${esc(it.unit||'')}`}</span></div><div class="meta">${esc(it.notes||'Biokiste')}</div><button class="secondary" style="margin-top:8px" onclick="removeBioboxItem('${it.id}')">Entfernen</button></div></article>`).join('');
+  const sug=suggested.map(r=>`<article class="item"><div class="body"><div class="top"><h2>${esc(r.foods?.name||'Artikel')}</h2><span class="pill">${esc(formatBuy(r))}</span></div><div class="meta">Bedarf bis ${r.needed_by?new Date(r.needed_by+'T12:00:00').toLocaleDateString('de-DE'):'–'}</div><button class="primary" style="margin-top:8px" onclick="addBioboxSuggestion('${r.food_id}',${Number(r.quantity_to_buy??r.required_quantity??0)||0},'${esc(r.required_unit||'')}')">In Biokiste übernehmen</button></div></article>`).join('');
+  return `<section style="margin:14px 0 20px"><div class="eyebrow">MITTWOCH · BIOKISTE FÜR MONTAG ${new Date(monday+'T12:00:00').toLocaleDateString('de-DE')}</div><section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Status: ${esc(status)}</b><br><span class="muted">Bestätigte Biokistenartikel werden bei der normalen Einkaufsliste als kommende Lieferung berücksichtigt – also nicht doppelt gekauft.</span></div></section>${items?`<div class="list" style="margin-top:10px">${items}</div>`:'<div class="meta" style="margin:10px 4px">Noch nichts für die Biokiste gespeichert.</div>'}${sug?`<div class="eyebrow" style="margin:16px 4px 8px">VORSCHLÄGE AUS DEM WOCHENBEDARF</div><div class="list">${sug}</div>`:''}<div style="display:grid;grid-template-columns:1.6fr .7fr .7fr;gap:8px;margin-top:14px"><input id="bioFood" list="bioFoodList" placeholder="Artikel ergänzen"><datalist id="bioFoodList">${foodOptions.map(f=>`<option value="${esc(f.name)}"></option>`).join('')}</datalist><input id="bioQty" type="number" min="0" step="0.01" placeholder="Menge"><input id="bioUnit" placeholder="Einheit"></div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="secondary" onclick="addCustomBioboxItem()">Zur Biokiste</button><button class="primary" onclick="markBioboxOrdered()">Bestellung bestätigt</button>${bioboxDelivery?.status==='ordered'||bioboxDelivery?.status==='planned'?'<button class="secondary" onclick="receiveBiobox()">Biokiste angekommen</button>':''}</div></section>`;
+}
+
 function renderShopping(){
   const visible=rows.filter(r=>!r.checked);
   const doneRows=rows.filter(r=>r.checked);
@@ -2164,8 +2294,9 @@ function renderShopping(){
       <div><b>${visible.filter(r=>r.category==='Vorrat prüfen').length}</b><span>Vorrat prüfen</span></div>
       <div><b>${doneRows.length}</b><span>erledigt</span></div>
     </section>
+    ${bioboxPanelHtml()}
     <section class="notice" style="margin-bottom:12px;background:#fff8e8;border-color:#ead39a">
-      <div><b>Freitag → Montag · Dienstag → Donnerstag</b><br><span class="muted">Die Liste kommt direkt aus eurem Speiseplan und berücksichtigt Vorrat, bereits Gekauftes und rechtzeitig eintreffende Biokisten.</span></div>
+      <div><b>Freitag → Montag · Dienstag → Donnerstag</b><br><span class="muted">Die Liste kommt direkt aus eurem Speiseplan und berücksichtigt Vorrat, bereits Gekauftes und bestätigte Biokisten.</span><br><button class="primary" style="margin-top:10px" onclick="refreshFridayShopping()">Einkauf jetzt neu berechnen</button></div>
     </section>
     ${groupsHtml}
     ${doneRows.length?`<section style="margin-top:22px"><div class="eyebrow" style="margin:0 4px 8px">ERLEDIGT</div><div class="list">${doneRows.map(itemHtml).join('')}</div></section>`:''}
@@ -2491,11 +2622,16 @@ async function loadRows(doRefresh=true){
     .eq('household_id',householdId)
     .order('source_page',{ascending:true});
   recipeRows=recipeLoadError?[]:(recipeDataRows||[]);
+  rebuildNutritionDb();
   if(recipeLoadError) msg='Rezepte konnten nicht geladen werden: '+recipeLoadError.message;
+
+  const {data:allFoods}=await sb.from('foods').select('id,name,default_unit,category').order('name',{ascending:true});
+  if(allFoods) foodOptions=allFoods;
+  await loadBiobox();
 
   const {data,error}=await sb
     .from('shopping_items')
-    .select('id,household_id,food_id,required_quantity,required_unit,covered_by_inventory,covered_by_delivery,covered_by_purchased,quantity_to_buy,package_size,package_unit,packages_to_buy,category,checked,manually_added,auto_generated,needed_by,foods(name)')
+    .select('id,household_id,food_id,required_quantity,required_unit,covered_by_inventory,covered_by_delivery,covered_by_purchased,quantity_to_buy,package_size,package_unit,packages_to_buy,category,checked,manually_added,auto_generated,needed_by,foods(name,category,default_unit)')
     .eq('household_id',householdId)
     .order('needed_by',{ascending:true});
 
@@ -2506,6 +2642,7 @@ async function loadRows(doRefresh=true){
     rows=data||[];
     if(!rows.length) msg='Haushalt erkannt – aktuell sind keine Einkaufsposten vorhanden.';
   }
+  await loadBiobox();
   renderApp();
 }
 sb.auth.getSession().then(async ({data})=>{if(data.session){userId=data.session.user.id;await loadRows();restoreCookState();refreshCookPushState();renderApp()}else renderLogin()});
