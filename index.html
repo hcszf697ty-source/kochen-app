@@ -1631,6 +1631,75 @@ function recipeSearchText(r){
 let recipeListQuery='';
 function setRecipeListQuery(v){ recipeListQuery=(v||'').toLowerCase(); renderRecipes(); }
 
+
+
+// Geräteprofil: lokal auf dem Gerät gespeichert, verändert keine Originalrezepte.
+let kitchenDevices = (()=>{
+  try { return Object.assign({tm6:true,airfryer:true}, JSON.parse(localStorage.getItem('kitchenDevices')||'{}')); }
+  catch(e){ return {tm6:true,airfryer:true}; }
+})();
+function saveKitchenDevices(){ localStorage.setItem('kitchenDevices',JSON.stringify(kitchenDevices)); }
+function toggleKitchenDevice(name){ kitchenDevices[name]=!kitchenDevices[name]; saveKitchenDevices(); renderRecipes(); }
+
+function legacyRecipeKeyFor(db){
+  return Object.keys(recipeData||{}).find(k=>recipeData[k]?.title===db?.title) || null;
+}
+function verifiedTm6KeyFor(db){
+  const k=legacyRecipeKeyFor(db);
+  return k && tm6Cook?.[k] ? k : null;
+}
+function originalStepText(db){
+  const src=dbRecipeSource(db);
+  return (src.original_steps||[]).map(x=>x?.instruction||String(x||'')).join(' ');
+}
+function airfryerSuitability(db){
+  const t=originalStepText(db);
+  const low=t.toLowerCase();
+  // Nur dann anbieten, wenn das Original eine trockene Hitzequelle oder knuspriges Braten explizit vorsieht.
+  const suitable=/(backofen|ofen|backen|grill|grillen|überback|knuspr|braten|anbraten|pfanne)/i.test(t);
+  if(!suitable) return null;
+  const temp=[...t.matchAll(/(1[4-9]0|2[0-3]0)\s*°?\s*c/gi)].map(m=>Number(m[1]));
+  const times=[...t.matchAll(/(\d{1,3})(?:\s*[–-]\s*(\d{1,3}))?\s*(?:min\.?|minuten)/gi)].map(m=>[Number(m[1]),m[2]?Number(m[2]):Number(m[1])]);
+  return {
+    sourceTemp: temp.length?temp[0]:null,
+    sourceTime: times.length?times[0]:null,
+    basis: /(backofen|ofen|backen|grill|grillen|überback)/i.test(t)?'Ofen-/Grillschritt im Original':'Brat-/Knusperschritt im Original'
+  };
+}
+function airfryerAdaptationText(db){
+  const a=airfryerSuitability(db);
+  if(!a) return '';
+  let parts=[];
+  if(a.sourceTemp){
+    const af=Math.max(140,a.sourceTemp-20);
+    parts.push(`Startwert: ${af} °C Heißluftfritteuse (vom Original-Ofenwert ${a.sourceTemp} °C abgeleitet)`);
+  } else {
+    parts.push('Temperatur nicht aus dem Original ableitbar – deshalb kein fixer Temperaturwert');
+  }
+  if(a.sourceTime){
+    const lo=Math.max(3,Math.round(a.sourceTime[0]*0.7));
+    const hi=Math.max(lo,Math.round(a.sourceTime[1]*0.8));
+    parts.push(`ab ca. ${lo}${hi!==lo?'–'+hi:''} Min. prüfen; nur weitergaren, bis der im Original beschriebene Gar-/Bräunungsgrad erreicht ist`);
+  } else {
+    parts.push('Garzeit im Original nicht eindeutig angegeben – frühzeitig kontrollieren und nach Sicht garen');
+  }
+  parts.push('Korb nicht überfüllen; bei Stücken einmal wenden bzw. schütteln');
+  return parts.join(' · ');
+}
+function openDeviceInfo(id){
+  const db=recipeRows.find(x=>x.id===id); if(!db)return;
+  const tm=verifiedTm6KeyFor(db), af=airfryerSuitability(db);
+  const overlay=document.createElement('div'); overlay.id='deviceInfo';
+  overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.42);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+  overlay.innerHTML=`<section style="width:min(620px,100%);max-height:86vh;overflow:auto;background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div class="eyebrow">GERÄTE-KOCHMODUS</div><h2 style="margin:4px 0 0">${esc(db.title)}</h2></div><button class="icon" onclick="document.getElementById('deviceInfo')?.remove()">×</button></div>
+    ${tm?`<section class="notice" style="margin-top:16px;background:#edf3e9;border-color:#d7e2d0"><div><b>TM6 · geprüft</b><br><span class="muted">Schritt-für-Schritt-Modus mit konkreten Mengen, Zeit, Temperatur und Stufe.</span><br><button class="primary" style="margin-top:10px" onclick="document.getElementById('deviceInfo')?.remove();startCook('${tm}')">TM6-Kochmodus starten</button></div></section>`:`<section class="notice" style="margin-top:16px"><div><b>TM6</b><br><span class="muted">Für dieses Rezept ist noch kein geprüfter TM6-Kochmodus gespeichert. Die App erfindet dafür keine Einstellungen.</span></div></section>`}
+    ${af?`<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Heißluftfritteuse · Geräte-Adaption</b><br><span class="muted">${esc(airfryerAdaptationText(db))}</span><div class="meta" style="margin-top:8px">Basis: ${esc(af.basis)}. Das ist eine Geräteanpassung, nicht der Wortlaut des Kochbuchs.</div></div></section>`:`<section class="notice" style="margin-top:14px"><div><b>Heißluftfritteuse</b><br><span class="muted">Für dieses Rezept ergibt sich aus der Originalzubereitung kein sinnvoller Airfryer-Schritt.</span></div></section>`}
+    ${tm&&af?`<section class="notice" style="margin-top:14px;background:#f0eef8;border-color:#ddd7ef"><div><b>TM6 + Heißluftfritteuse</b><br><span class="muted">TM6 für die vorbereitenden/feuchten Schritte nutzen; den im Original vorgesehenen Ofen-, Brat- oder Knusperschritt parallel in der Heißluftfritteuse ausführen. Die Originalzutaten bleiben unverändert.</span></div></section>`:''}
+  </section>`;
+  document.body.appendChild(overlay);
+}
+
 function renderRecipes(){
   if(recipeOpen) return renderRecipeDetail(recipeOpen);
   const dbRecipes=(recipeRows||[]).filter(r=>{
@@ -1644,6 +1713,8 @@ function renderRecipes(){
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
     <div><b>Direkt aus der Rezeptdatenbank</b><br><span class="muted">Alle gespeicherten Originalrezepte werden hier automatisch angezeigt. Zutaten und Zubereitung stammen aus den gesicherten Kochbuchseiten.</span></div>
   </section>
+
+  <section class="notice" style="margin-top:14px"><div style="width:100%"><b>Meine Geräte</b><br><span class="muted">Wird nur für Kochvorschläge genutzt; das Originalrezept bleibt unverändert.</span><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"><button class="secondary" onclick="toggleKitchenDevice('tm6')">${kitchenDevices.tm6?'✓ ':''}TM6</button><button class="secondary" onclick="toggleKitchenDevice('airfryer')">${kitchenDevices.airfryer?'✓ ':''}Heißluftfritteuse</button></div></div></section>
 
   <section style="margin-top:14px"><input value="${esc(recipeListQuery)}" oninput="setRecipeListQuery(this.value)" placeholder="Rezept, Zutat oder Seite suchen …" style="width:100%;padding:14px 16px;border:1px solid #d9d7ca;border-radius:16px;background:#fffdf8;font:inherit"></section>
 
@@ -1698,7 +1769,7 @@ function renderRecipeDetail(key){
 
   ${src.gluten_free_adaptation?`<section class="notice" style="margin-top:14px;background:#fff4d9;border-color:#ead39a"><div><b>Glutenfreie Anpassung</b><br>${esc(src.gluten_free_adaptation)}</div></section>`:''}
 
-  ${legacyKey&&tm6Cook[legacyKey]?`<button onclick="startCook('${legacyKey}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">Im TM6 kochen</button>`:`<section class="notice" style="margin-top:18px"><div><b>Rezeptkarte vollständig</b><br><span class="muted">Originalzutaten und Originalzubereitung sind gespeichert. Ein geprüfter TM6-Kochmodus kann separat ergänzt werden.</span></div></section>`}
+  <section class="notice" style="margin-top:18px;background:#f5f3ea;border-color:#ded9c8"><div style="width:100%"><b>Geräte-Kochmodus</b><br><span class="muted">${verifiedTm6KeyFor(db)?'TM6-Modus geprüft. ':''}${airfryerSuitability(db)?'Heißluftfritteuse für mindestens einen Schritt sinnvoll.':''}</span><br><button class="primary" style="margin-top:10px;width:100%" onclick="openDeviceInfo('${db.id}')">Kochmöglichkeiten anzeigen</button></div></section>
 
   <nav class="bottom"><span onclick="recipeOpen=null;activeTab='today';renderApp()">Heute</span><span onclick="recipeOpen=null;activeTab='plan';renderApp()">Plan</span><b onclick="recipeOpen=null;activeTab='recipes';renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="recipeOpen=null;activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
