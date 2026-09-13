@@ -83,6 +83,7 @@ let cookMode=null;
 let cookStep=0;
 let cookServings=null;
 let cookMultiplier=1;
+let cookToken=null;
 let cookStateParked=false; // gespeicherter Kochstand vorhanden, aber nicht automatisch öffnen
 
 const COOK_STATE_KEY='kochen_active_cook_v3';
@@ -94,7 +95,7 @@ function saveCookState(){
   try{
     if(!cookMode){localStorage.removeItem(COOK_STATE_KEY);return;}
     localStorage.setItem(COOK_STATE_KEY,JSON.stringify({
-      cookMode,cookStep,cookServings,cookMultiplier,
+      cookMode,cookStep,cookServings,cookMultiplier,cookToken,
       cookTimerSeconds,cookTimerEndAt,cookTimerRunning,cookPushTimerId,
       savedAt:Date.now()
     }));
@@ -111,6 +112,7 @@ function restoreCookState(){
     cookStep=Math.max(0,Math.min(Number(s.cookStep)||0,tm6Cook[cookMode].steps.length-1));
     cookServings=s.cookServings==null?(tm6Cook[cookMode].defaultYield||1):Number(s.cookServings);
     cookMultiplier=Number(s.cookMultiplier)||1;
+    cookToken=s.cookToken||null;
     cookTimerSeconds=Math.max(0,Number(s.cookTimerSeconds)||0);
     cookTimerEndAt=s.cookTimerEndAt?Number(s.cookTimerEndAt):null;
     cookTimerRunning=!!s.cookTimerRunning && !!cookTimerEndAt;
@@ -1157,6 +1159,7 @@ function confirmCookStart(key){
   const n=Number(document.getElementById('cookServingsInput')?.value||c.defaultYield||1);
   if(!Number.isFinite(n)||n<=0){alert('Bitte eine gültige Portionszahl eingeben.');return;}
   cookServings=n; cookMultiplier=c.defaultYield? n/Number(c.defaultYield):1;
+  cookToken=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());
   resetCookTimer();
   document.getElementById('portionStart')?.remove(); cookMode=key; cookStep=0; cookStateParked=false; saveCookState(); renderCookMode();
 }
@@ -1796,7 +1799,7 @@ async function finishOriginalCook(){
   if(remainValue!==null && (!Number.isFinite(remainValue)||remainValue<0)){alert('Bitte eine gültige Restmenge eingeben.');return;}
 
   const token=originalCookToken||(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());
-  const {error}=await sb.rpc('consume_recipe_v2',{
+  const {data,error}=await sb.rpc('consume_recipe_v2',{
     p_recipe_id:db.id,
     p_cook_token:token,
     p_multiplier:originalCookMultiplier||1,
@@ -1808,11 +1811,20 @@ async function finishOriginalCook(){
     alert('Die Kochrunde wurde nicht im Vorrat verbucht: '+error.message);
     return;
   }
+  if(data?.duplicate){
+    alert('Diese Kochrunde wurde bereits verbucht ✓\n\nEs wurde nichts ein zweites Mal vom Vorrat abgezogen.');
+    return;
+  }
   await loadInventory();
   const id=originalCookRecipeId;
   originalCookRecipeId=null; originalCookStep=0; originalCookServings=null; originalCookMultiplier=1; originalCookToken=null;
   recipeOpen=id; activeTab='recipes'; renderRecipes();
-  alert('Kochrunde gespeichert. Vorrat und übrige Portionen wurden aktualisiert.');
+  const est=data?.tracked_estimated||[];
+  const unq=data?.tracked_unquantified||[];
+  const notes=[];
+  if(est.length) notes.push(`${est.length} Verbrauchsmengen konnten wegen geschätztem Vorrat/abweichender Einheit nur protokolliert werden`);
+  if(unq.length) notes.push(`${unq.length} Zutaten ohne feste Mengenangabe wurden protokolliert, aber nicht mit erfundener Menge abgezogen`);
+  alert(`Kochrunde gespeichert ✓\n\nVorrat und übrige Portionen wurden aktualisiert.${notes.length?'\n\n'+notes.join('. ')+'.':''}`);
 }
 function renderOriginalCookMode(){
   const db=recipeRows.find(x=>x.id===originalCookRecipeId);
