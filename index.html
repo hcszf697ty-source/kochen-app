@@ -987,68 +987,7 @@ function nutritionBadge(title){
   return bits.join(' · ');
 }
 
-const weekPlan = {
-  '2026-09-09':{
-    label:'Mi · 09.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Kartoffelpfanne mit Spiegelei','vom Vorabend · Ulrike + Marcel'],
-      ['Abend','Lachs mit scharfem Kohlrabi-Karotten-Gemüse','Familienabendessen']
-    ],
-    note:'Tatsächlich gegessen: Lachs mit scharfem Kohlrabi-Karotten-Gemüse.',
-    preps:[]
-  },
-  '2026-09-10':{
-    label:'Do · 10.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Rest / außer Haus','Ulrike + Marcel'],
-      ['Abend','Eingelegtes Schweinefilet mit süßsaurem Gemüse','Familienabendessen + 2 Lunchportionen für Freitag']
-    ],
-    note:'Zwei Lunchportionen für Freitag zurückstellen.',
-    preps:[]
-  },
-  '2026-09-11':{
-    label:'Fr · 11.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Quark mit Beeren','quark'),'2 Erwachsene'],
-      ['Mittag außer Haus','Eingelegtes Schweinefilet mit süßsaurem Gemüse','vom Vorabend · Ulrike + Marcel'],
-      ['Abend',recipeLink('Schlemmerfilet auf buntem Gemüse','schlemmerfilet'),'Familienabendessen']
-    ],
-    note:'Freitagseinkauf deckt Freitag bis Montag; vorhandene Tomaten und 1 normale Zucchini werden zuerst verwendet.',
-    preps:[]
-  },
-  '2026-09-12':{
-    label:'Sa · 12.09.', phase:'Turbo',
-    meals:[
-      ['Frühstück',recipeLink('Hüttenkäse mit Gemüse','huettenkaese'),'Wochenend-Frühstück aus dem Kochbuch'],
-      ['Mittag','Rohkost-Salat mit Ei','Turbo · Kochbuch S. 46'],
-      ['Abend','Außer Haus','keine Mahlzeit einplanen']
-    ],
-    note:'Letzter Turbo-Tag. Abends seid ihr außer Haus.',
-    preps:[]
-  },
-  '2026-09-13':{
-    label:'So · 13.09.', phase:'Abnehmphase · Tag 15',
-    meals:[
-      ['Frühstück',recipeLink('Toast mit Schinken & Ei','toastEi'),'glutenfreier Vollkorntoast · 423 kcal · 25 g Protein · 39 g KH pro Buchportion'],
-      ['Mittag',recipeLink('Auberginen gefüllt mit Linsencurry','linsencurry'),'Abnehmphase · 521 kcal · 21 g Protein · 60 g KH pro Buchportion'],
-      ['Abend',recipeLink('Geschmortes Rindfleisch chinesische Art','rindChina'),'Familienabendessen + 2 Lunchportionen für Montag · 538 kcal · 38 g Protein · 63 g KH pro Buchportion']
-    ],
-    note:'Start der Abnehmphase. Glutenfreie Anpassungen ausdrücklich kennzeichnen; Sojasoße glutenfrei verwenden.',
-    preps:[]
-  },
-  '2026-09-14':{
-    label:'Mo · 14.09.', phase:'Abnehmphase · Tag 16',
-    meals:[
-      ['Frühstück','Porridge','schnelles Frühstück aus der Abnehmphase · glutenfreie Haferflocken'],
-      ['Mittag außer Haus',recipeLink('Geschmortes Rindfleisch chinesische Art','rindChina'),'vom Vorabend · Ulrike + Marcel'],
-      ['Abend',recipeLink('Jägerschnitzel mit Champignons','jaegerschnitzel'),'Familienabendessen + 2 Lunchportionen für Dienstag · 401 kcal · 41 g Protein · 16 g KH pro Buchportion']
-    ],
-    note:'Biokiste kommt heute. Die 700 g Steinchampignons werden für das Jägerschnitzel genutzt; zwei Lunchportionen für Dienstag zurückstellen.',
-    preps:[]
-  }
-};
+const weekPlan = {};
 
 loadPlanOverrides();
 
@@ -3061,7 +3000,6 @@ async function loadRows(doRefresh=true){
   mealPlanRows=mealPlanError?[]:(mealPlanData||[]);
   if(mealPlanError) msg='Wochenplan konnte nicht geladen werden: '+mealPlanError.message;
   mergeDbMealPlan();
-  loadPlanOverrides();
 
   const {data:allFoods}=await sb.from('foods').select('id,name,default_unit,category').order('name',{ascending:true});
   if(allFoods) foodOptions=allFoods;
