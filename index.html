@@ -768,18 +768,32 @@ const vegPrepRules=[
   {keys:['zucchini','aubergine','champignon','pilz'],life:2,label:'besser nur 1–2 Tage vorab'},
   {keys:['gurke','tomate','salat','feldsalat','rucola','spinat','avocado','spargel'],life:0,label:'frisch vorbereiten'}
 ];
-const freshProteinKeys=['hähnchen','haehnchen','pute','rind','schwein','kalb','lachs','fisch','thunfisch','matjes','ei','eier','tofu','feta','mozzarella','käse','kaese','hüttenkäse','huettenkaese'];
+const freshProteinKeys=['hähnchen','haehnchen','pute','rind','schwein','kalb','lachs','fisch','thunfisch','matjes','tofu','feta','mozzarella','käse','kaese','hüttenkäse','huettenkaese'];
 function prepRuleForFood(name){
   const n=String(name||'').toLowerCase();
   for(const r of vegPrepRules) if(r.keys.some(k=>n.includes(k))) return r;
   return null;
 }
-function isFreshProteinFood(name){const n=String(name||'').toLowerCase();return freshProteinKeys.some(k=>n.includes(k));}
+function isFreshProteinFood(name){const n=String(name||'').toLowerCase();return freshProteinKeys.some(k=>n.includes(k))||/(^|\s)(ei|eier)(\s|$)/.test(n);}
+function ingredientDisplayMeasure(x,mult){
+  // Die importierten Strukturspalten enthalten bei einigen Alt-Datensätzen falsche Einheiten
+  // (z.B. 250 "Stück" statt 250 g). Die verifizierte Original-Zeile ist hier maßgeblich.
+  const note=String(x.preparation_note||'').trim();
+  const m=note.match(/^(\d+(?:[.,]\d+)?|[½¼¾])\s*(g|kg|ml|l|EL|TL|Stück|Stck|Zehe|Zehen|Bund|Bd\.)\b/i);
+  if(m){
+    const frac={'½':.5,'¼':.25,'¾':.75};
+    const q=frac[m[1]]??Number(m[1].replace(',','.'));
+    let u=m[2].replace(/^Stck$/i,'Stück').replace(/^Bd\.$/i,'Bund');
+    return {quantity:q*mult,unit:u};
+  }
+  return {quantity:x.quantity==null?null:Number(x.quantity)*mult,unit:x.unit||''};
+}
 function scaledIngredientRows(recipe,date){
   const mult=plannerMultiplier(recipe,date,'DINNER');
-  return (recipe?.recipe_ingredients||[]).filter(x=>!x.optional).map(x=>({
-    name:x.foods?.name||'', quantity:x.quantity==null?null:Number(x.quantity)*mult, unit:x.unit||''
-  }));
+  return (recipe?.recipe_ingredients||[]).filter(x=>!x.optional).map(x=>{
+    const measure=ingredientDisplayMeasure(x,mult);
+    return {name:x.foods?.name||'', quantity:measure.quantity, unit:measure.unit};
+  });
 }
 function formatPrepQty(q,u){
   if(q==null||!isFinite(q)) return '';
@@ -821,7 +835,11 @@ function vegetablePrepPlanHtml(draft=smartWeekDraft){
   return `<section class="list"><article class="item"><div class="body"><div class="eyebrow">SMARTES GEMÜSE-MEAL-PREP</div><h2 style="margin:4px 0 6px">Einmal schnippeln, mehrere Abende nutzen</h2><div class="meta">Nur robuste Gemüse werden vorab gebündelt. Protein, Salat und empfindliche Gemüse bleiben frisch.</div>${blocks.map(b=>`<div style="margin-top:16px;padding-top:14px;border-top:1px solid #e7e1d5"><div class="top"><h3 style="margin:0">${esc(deDayLabel(b.prepDate))} vorbereiten</h3><span class="pill">für ${esc(b.range)}</span></div>${b.stable.length?`<div style="margin-top:10px"><b>Jetzt vorbereiten</b>${b.stable.map(x=>`<div class="meta">• ${x.hasQty?esc(formatPrepQty(x.quantity,x.unit))+' ':''}${esc(x.name)} <span class="muted">→ ${esc([...x.days].join(', '))}</span></div>`).join('')}</div>`:''}${b.fresh.length?`<div style="margin-top:10px"><b>Später frisch machen</b>${b.fresh.map(x=>`<div class="meta">• ${esc(x.name)} <span class="muted">(${esc(x.label)})</span></div>`).join('')}</div>`:''}${b.proteins.length?`<div style="margin-top:10px"><b>Protein frisch dazu</b>${b.proteins.map(x=>`<div class="meta">• ${esc(x)}</div>`).join('')}</div>`:''}${b.uses.length?`<div style="margin-top:10px"><b>Wird verwendet für</b>${b.uses.map(u=>`<div class="meta">• ${esc(u.day)}: ${esc(u.recipe)} · ${esc(u.veg.join(', '))}</div>`).join('')}</div>`:''}</div>`).join('')}</div></article></section>`;
 }
 function savedVegetablePrepHtml(){
-  try{const raw=localStorage.getItem('kochen_veg_prep_plan');if(!raw)return '';const data=JSON.parse(raw);if(!data?.html)return '';return `<section style="margin:14px 0"><div class="eyebrow" style="margin-bottom:8px">MEAL-PREP</div>${data.html}</section>`;}catch(e){return ''}
+  try{
+    const raw=localStorage.getItem('kochen_veg_prep_plan'); if(!raw)return '';
+    const data=JSON.parse(raw); if(!data?.html)return '';
+    return `<details style="margin:10px 0 16px;background:#fffdf7;border:1px solid #e1dacb;border-radius:18px;padding:12px 14px"><summary style="font-weight:900;cursor:pointer">🥕 Gemüse-Meal-Prep anzeigen</summary><div style="margin-top:12px">${data.html}</div></details>`;
+  }catch(e){return ''}
 }
 function plannerMealMeta(day,meal,index){
   const r=meal.recipe, n=r?nutritionForTitle(r.title):null;
@@ -1079,6 +1097,27 @@ function setPlanDay(day){
   renderPlan();
 }
 
+function compactNutritionLine(day){
+  const n=nutritionForDay(day);
+  const missing=n.missing.length>0||!n.user.kcalKnown||!n.user.proteinKnown;
+  if(missing) return `Nährwerte teilweise offen`;
+  const kcal=Math.round(n.user.kcal), protein=Math.round(n.user.protein);
+  const kcalLeft=Math.max(0,nutritionTargets.user.kcalMin-kcal);
+  return `Du: ${protein} g Protein ${protein>=nutritionTargets.user.proteinMin?'✓':'· noch '+(nutritionTargets.user.proteinMin-protein)+' g'} · ${kcal} kcal${kcalLeft?` · noch ca. ${kcalLeft} kcal`:''}`;
+}
+function compactMealRow(date,meal,index){
+  const title=plainRecipeTitle(meal[1]);
+  const n=nutritionForTitle(title);
+  const badge=n&&n.kcal!=null&&n.protein!=null?`<span class="muted" style="font-size:12px;white-space:nowrap">${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g</span>`:'';
+  return `<div style="display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #eee8dc">
+    <b style="font-size:13px">${esc(meal[0].replace(' außer Haus',''))}</b><div style="min-width:0;font-weight:800">${mealRecipeHtml(meal)}</div>${badge}
+  </div>`;
+}
+function dayDetailsHtml(date,d){
+  return `<details style="margin-top:8px"><summary class="muted" style="cursor:pointer;font-weight:800">Details & Änderungen</summary>
+    <div style="padding-top:6px">${(d.meals||[]).map((m,i)=>{const title=plainRecipeTitle(m[1]);return `<div style="padding:9px 0;border-top:1px solid #eee8dc"><b>${esc(m[0])}</b><div class="meta">${esc(m[2]||'')}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</div>${mealRecipeOpenButton(date,i,m)}<button onclick="openPortionSplit('${date}',${i})" style="margin-top:7px;padding:8px 11px;border:1px solid #294936;border-radius:12px;background:#fffdf7;color:#294936;font-weight:700">Aufteilen</button>${changeMealButton(date,i)}</div>`}).join('')}
+    ${d.note?`<div class="meta" style="margin-top:8px">${esc(d.note)}</div>`:''}</div></details>`;
+}
 function renderPlan(){
   ensureValidPlanDay();
   const entries=visiblePlanEntries();
@@ -1086,55 +1125,22 @@ function renderPlan(){
   const range=planRangeLabel(entries);
   const hasFuture=entries.length>0;
   document.getElementById('app').innerHTML=`<main class="shell">
-    <header><div><div class="eyebrow">${esc((d.phase||'PLAN').toUpperCase())}</div><h1>Plan</h1></div>
-      <div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+    <header><div><div class="eyebrow">AKTUELLER PLAN</div><h1>Woche</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
-    <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
-      <div><b>${esc(range)}</b><br><span class="muted">Nur heute und zukünftige Tage · Meal Prep: Abendessen → Mittag des Folgetags</span></div>
-    </section>
-    <button class="primary" onclick="openSmartWeekPlanner()" style="width:100%;margin:0 0 16px;padding:14px 16px;border-radius:16px;font-weight:900">✨ Woche intelligent planen</button>
+    <section class="notice" style="background:#edf3e9;border-color:#d7e2d0;padding:11px 14px"><div><b>${esc(range)}</b><br><span class="muted">Abends einmal kochen · Mittag vom Vorabend</span></div></section>
+    <button class="primary" onclick="openSmartWeekPlanner()" style="width:100%;margin:0 0 10px;padding:12px 14px;border-radius:15px;font-weight:900">✨ Woche intelligent planen</button>
     ${savedVegetablePrepHtml()}
 
-    ${hasFuture?`<div class="eyebrow" style="margin:4px 0 7px">AKTUELLER PLAN · ${esc(range)}</div>
-    <section style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:4px 0 14px">
-      ${entries.map(([key,x])=>`
-        <button onclick="setPlanDay('${key}')" style="min-width:0;border:${planDay===key?'2px solid #294936':'1px solid #d8d2c3'};background:${planDay===key?'#edf3e9':'#fffdf7'};border-radius:15px;padding:10px 5px;text-align:center">
-          <div style="font-weight:800;font-size:13px;white-space:nowrap">${x.label.replace(' · ',' ')}</div>
-          <div class="muted" style="font-size:11px;margin-top:2px">${esc(x.phase)}</div>
-        </button>`).join('')}
-    </section>
+    ${hasFuture?`<section class="list">
+      ${entries.map(([key,x])=>`<article class="item" style="padding:0"><div class="body" style="padding:15px 16px">
+        <div class="top" style="margin-bottom:3px"><h2 style="margin:0">${x.label}</h2><span class="pill">${esc(x.phase)}</span></div>
+        ${(x.meals||[]).map((m,i)=>compactMealRow(key,m,i)).join('')}
+        <div class="meta" style="margin-top:8px;font-weight:700">${esc(compactNutritionLine(x))}</div>
+        ${dayDetailsHtml(key,x)}
+      </div></article>`).join('')}
+    </section>`:`<section class="notice"><div><b>Noch kein aktueller Plan gespeichert</b><br><span class="muted">Mit „Woche intelligent planen“ kannst du eine neue Woche anlegen.</span></div></section>`}
 
-    <section style="margin:4px 0 18px">
-      <div class="list">
-        ${entries.map(([key,x])=>`
-          <article class="item" onclick="setPlanDay('${key}')" style="cursor:pointer">
-            <div class="body">
-              <div class="top"><h2>${x.label}</h2><span class="pill">${esc(x.phase)}</span></div>
-              ${x.meals.map(m=>`<p class="desc" style="margin:5px 0"><b>${esc(m[0])}:</b> ${mealRecipeHtml(m)} <span class="muted">· ${esc(m[2]||'')}</span></p>`).join('')}
-            </div>
-          </article>`).join('')}
-      </div>
-    </section>`:`<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Noch kein aktueller Plan gespeichert</b><br><span class="muted">Für heute oder die kommenden Tage ist in Supabase aktuell keine vollständige Planung vorhanden. Mit „Woche intelligent planen“ kannst du eine neue Woche anlegen.</span></div></section>`}
-
-    ${targetCard()}
-    ${nutritionCheckCard(d)}
-    ${(()=>{const t=dayTimeSummary(d);return t?`<section class="notice" style="margin-top:14px"><div><b>Zubereitungszeit ${d.label}</b><br><span class="muted">${t.active} Min aktiv · ${t.total} Min gesamt</span></div></section>`:''})()}
-
-    <section class="list"><article class="item"><div class="body">
-      <div class="top"><h2>${d.label}</h2><span class="pill">${d.phase}</span></div>
-      ${(d.meals||[]).length?d.meals.map((m,i)=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<div style="padding:10px 0;border-bottom:1px solid #e7e1d5">
-        <p class="desc" style="margin:0"><b>${esc(m[0])}:</b> ${mealRecipeHtml(m)} <span class="muted">· ${esc(m[2]||'')}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</span></p>
-        ${splitMeta(planDay,m)}
-        ${mealRecipeOpenButton(planDay,i,m)}
-        <button onclick="openPortionSplit('${planDay}',${i})" style="margin-top:8px;padding:9px 12px;border:1px solid #294936;border-radius:13px;background:#fffdf7;color:#294936;font-weight:700">So aufteilen</button>${changeMealButton(planDay,i)}
-      </div>`}).join(''):`<div class="meta" style="margin-top:8px">Für diesen Tag sind noch keine Mahlzeiten gespeichert.</div>`}
-      ${(d.preps||[]).map(x=>`<div style="height:10px"></div>${prepCard(x[0],x[1]||'',`${x[2]}${timeMetaFor(x[0])?` · ${timeMetaFor(x[0])}`:''}`)}`).join('')}
-      ${d.note?`<div class="meta" style="margin-top:10px">${esc(d.note)}</div>`:''}
-    </div></article></section>
-
-    <section class="notice" style="margin-top:14px">
-      <div><b>Planungsregeln</b><br>Kalorien-/Proteinziele prüfen · Meal-Prep vom Vorabend · Gemüse-Prep bündeln · fertige verderbliche Reste zuerst · bereits gekaufte verderbliche Zutaten schützen · Vorrat → bereits gekauft → rechtzeitige Biokiste → Einkauf.</div>
-    </section>
+    <details style="margin:14px 0 80px;background:#fffdf7;border:1px solid #e1dacb;border-radius:18px;padding:12px 14px"><summary style="font-weight:900;cursor:pointer">Tagesziele & Ernährungscheck</summary><div style="margin-top:10px">${targetCard()}${nutritionCheckCard(d)}</div></details>
 
     <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><b onclick="activeTab='plan';renderApp()">Plan</b><span onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</span><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav>
   </main>`;
