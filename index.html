@@ -42,7 +42,7 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 <div id="app"></div>
 <script>
 const sb = supabase.createClient('https://bixdfvcgtxlsmkbnqbdu.supabase.co', 'sb_publishable_JLA2i8RvnwDLYCBr3owJqQ_VpjKlOKQ');
-let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], portionRows=[], substitutionPrefs=[], mealSubstitutions=[], recipeRows=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
+let rows=[], inventoryRows=[], preparedMealRows=[], reservationRows=[], portionRows=[], substitutionPrefs=[], mealSubstitutions=[], recipeRows=[], mealPlanRows=[], filter='all', query='', userId='', householdId='', msg='', smartSummary=null;
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function formatBuy(r){
@@ -193,9 +193,36 @@ function prepCard(title,key,whenText){
 
 function recipeLink(title,key){
   if(key){
-    return `<button type="button" onclick="event.stopPropagation();openRecipe('${key}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #cbd8cf;border-radius:12px;background:#f3f7f2;color:#183425;font:inherit;font-weight:800;cursor:pointer">${title}<span aria-hidden="true">›</span></button>`;
+    return `<button type="button" onclick="event.stopPropagation();openRecipe('${key}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #cbd8cf;border-radius:12px;background:#f3f7f2;color:#183425;font:inherit;font-weight:800;cursor:pointer">${esc(title)}<span aria-hidden="true">›</span></button>`;
   }
-  return `<span style="font-weight:700">${title}</span>`;
+  return `<span style="font-weight:700">${esc(title)}</span>`;
+}
+function recipeForMeal(meal){
+  const title=plainRecipeTitle(meal?.[1]||'');
+  if(!title || /^(reste?|rest \/ außer haus|außer haus|eigene mahlzeit)$/i.test(title)) return null;
+  if(meal?.[3]){
+    const byId=recipeRows.find(r=>r.id===meal[3]);
+    if(byId) return byId;
+  }
+  const key=normalizeNutritionTitle(title);
+  return recipeRows.find(r=>normalizeNutritionTitle(r.title)===key)||null;
+}
+function mealRecipeHtml(meal){
+  const title=plainRecipeTitle(meal?.[1]||'');
+  const r=recipeForMeal(meal);
+  return r?recipeLink(title,r.id):`<span style="font-weight:700">${esc(title)}</span>`;
+}
+function openMealRecipe(date,index){
+  const meal=weekPlan?.[date]?.meals?.[index];
+  if(!meal)return;
+  const r=recipeForMeal(meal);
+  if(!r){alert('Für dieses Gericht ist keine Kochbuch-Rezeptkarte verknüpft.');return;}
+  openRecipe(r.id);
+}
+function mealRecipeOpenButton(date,index,meal){
+  const r=recipeForMeal(meal);
+  if(!r)return '';
+  return `<button class="secondary" onclick="openMealRecipe('${date}',${index})" style="margin-top:8px;padding:9px 12px">Rezept öffnen ›</button>`;
 }
 
 
@@ -441,13 +468,14 @@ function loadPlanOverrides(){
       if(weekPlan[date]?.meals?.[Number(idx)] && v?.title){
         weekPlan[date].meals[Number(idx)][1]=v.title;
         weekPlan[date].meals[Number(idx)][2]=v.meta||'spontan geändert';
+        weekPlan[date].meals[Number(idx)][3]=v.recipeId||null;
       }
     });
   }catch(e){}
 }
-function savePlanOverride(date,index,title,meta){
+function savePlanOverride(date,index,title,meta,recipeId=null){
   let o={}; try{o=JSON.parse(localStorage.getItem('kochen_plan_overrides')||'{}')}catch(e){}
-  o[`${date}|${index}`]={title,meta};
+  o[`${date}|${index}`]={title,meta,recipeId};
   localStorage.setItem('kochen_plan_overrides',JSON.stringify(o));
 }
 function changeMealButton(date,index){
@@ -476,7 +504,7 @@ async function saveSpecialMeal(date,index,title){
   const meal=weekPlan[date]?.meals?.[index]; if(!meal)return;
   const mealType=mealTypeForLabel(meal[0]);
   if(householdId){ await sb.from('meal_plan_items').delete().eq('household_id',householdId).eq('meal_date',date).eq('meal_type',mealType); }
-  weekPlan[date].meals[index][1]=title; weekPlan[date].meals[index][2]='spontan geändert'; savePlanOverride(date,index,title,'spontan geändert');
+  weekPlan[date].meals[index][1]=title; weekPlan[date].meals[index][2]='spontan geändert'; savePlanOverride(date,index,title,'spontan geändert',null);
   document.getElementById('mealChanger')?.remove(); await refreshSmartShopping(false); await loadRows(false);
 }
 async function saveMealChange(date,index,recipeId){
@@ -486,8 +514,236 @@ async function saveMealChange(date,index,recipeId){
     const {error:delErr}=await sb.from('meal_plan_items').delete().eq('household_id',householdId).eq('meal_date',date).eq('meal_type',mealType); if(delErr){alert('Änderung konnte nicht vorbereitet werden: '+delErr.message);return;}
     const {error}=await sb.from('meal_plan_items').insert({household_id:householdId,meal_date:date,meal_type:mealType,recipe_id:r.id,batch_multiplier:1,status:'planned',notes:'Spontan in der App geändert'}); if(error){alert('Gericht konnte nicht gespeichert werden: '+error.message);return;}
   }
-  weekPlan[date].meals[index][1]=r.title; weekPlan[date].meals[index][2]=`spontan geändert · Kochbuch S. ${r.source_page||'–'}`; savePlanOverride(date,index,r.title,weekPlan[date].meals[index][2]);
+  weekPlan[date].meals[index][1]=r.title; weekPlan[date].meals[index][2]=`spontan geändert · Kochbuch S. ${r.source_page||'–'}`; weekPlan[date].meals[index][3]=r.id; savePlanOverride(date,index,r.title,weekPlan[date].meals[index][2],r.id);
   document.getElementById('mealChanger')?.remove(); await refreshSmartShopping(false); await loadRows(false);
+  // Die DB ist die Quelle; danach die konkrete Rezept-ID noch einmal in den sichtbaren Plan übernehmen.
+  const updated=weekPlan[date]?.meals?.[index];
+  if(updated){updated[1]=r.title;updated[2]=`spontan geändert · Kochbuch S. ${r.source_page||'–'}`;updated[3]=r.id;}
+  renderApp();
+}
+
+
+function isoLocal(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function dateFromIso(s){const [y,m,d]=String(s).split('-').map(Number);return new Date(y,m-1,d,12,0,0)}
+function addDaysIso(s,n){const d=dateFromIso(s);d.setDate(d.getDate()+n);return isoLocal(d)}
+function nextMondayIso(){
+  const d=new Date(), dow=d.getDay();
+  const add=(8-dow)%7 || 7;
+  d.setDate(d.getDate()+add);
+  return isoLocal(d);
+}
+function deDayLabel(date){
+  const d=dateFromIso(date); const wd=['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()];
+  return `${wd} · ${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.`;
+}
+function phaseLabelForDate(date){
+  const start=dateFromIso('2026-09-13'), d=dateFromIso(date);
+  const diff=Math.round((d-start)/86400000);
+  if(diff>=0) return `Abnehmphase · Tag ${15+diff}`;
+  return 'Turbo';
+}
+function ensurePlanDay(date){
+  if(!weekPlan[date]) weekPlan[date]={label:deDayLabel(date),phase:phaseLabelForDate(date),meals:[],note:'',preps:[]};
+  weekPlan[date].label=deDayLabel(date);
+  if(!weekPlan[date].phase) weekPlan[date].phase=phaseLabelForDate(date);
+  if(!Array.isArray(weekPlan[date].meals)) weekPlan[date].meals=[];
+  return weekPlan[date];
+}
+function mealLabelFromType(type,date){
+  if(type==='BREAKFAST') return 'Frühstück';
+  if(type==='LUNCH') return [1,2,3,4,5].includes(dateFromIso(date).getDay())?'Mittag außer Haus':'Mittag';
+  return 'Abend';
+}
+function mergeDbMealPlan(){
+  (mealPlanRows||[]).filter(x=>x?.recipes?.title).sort((a,b)=>String(a.meal_date).localeCompare(String(b.meal_date))).forEach(x=>{
+    const day=ensurePlanDay(x.meal_date), label=mealLabelFromType(x.meal_type,x.meal_date);
+    const idx={BREAKFAST:0,LUNCH:1,DINNER:2}[x.meal_type];
+    const meta=x.notes || (x.prep_date && x.prep_date<x.meal_date?'vom Vorabend · Ulrike + Marcel':`Kochbuch S. ${x.recipes.source_page||'–'}`);
+    day.meals[idx]=[label,x.recipes.title,meta,x.recipes.id];
+  });
+  Object.values(weekPlan).forEach(d=>{if(Array.isArray(d.meals))d.meals=d.meals.filter(Boolean)});
+}
+function recipeSourceText(r){
+  const src=r?.recipe_original_sources;
+  return `${r?.title||''} ${r?.notes||''} ${JSON.stringify(src||'')}`.toLowerCase();
+}
+function plannerExcluded(r){
+  const t=recipeSourceText(r);
+  return /(haselnuss|apfel|apfelsaft|shrimp|garnele|fenchel|kichererb)/i.test(t);
+}
+function plannerMealKind(r){
+  const p=Number(r.source_page||0);
+  if(p>=64 && p<=79) return 'breakfast';
+  return 'main';
+}
+function plannerInventoryCoverage(r){
+  const ings=(r.recipe_ingredients||[]).filter(x=>x?.food_id && x?.quantity!=null);
+  if(!ings.length) return {ratio:0,known:0,total:0};
+  let known=0;
+  ings.forEach(i=>{
+    const has=inventoryRows.some(v=>v.food_id===i.food_id && Number(v.quantity||0)>0);
+    if(has) known++;
+  });
+  return {ratio:known/ings.length,known,total:ings.length};
+}
+const plannerTargets={
+  BREAKFAST:{kcalMin:350,kcalMax:500,proteinMin:20,proteinIdeal:28},
+  LUNCH:{kcalMin:450,kcalMax:650,proteinMin:25,proteinIdeal:32},
+  DINNER:{kcalMin:500,kcalMax:750,proteinMin:30,proteinIdeal:38}
+};
+function mealTargetStatus(type,n){
+  const t=plannerTargets[type];
+  if(!n||n.kcal==null||n.protein==null)return {label:'Nährwerte offen',ok:false};
+  const kcalOk=n.kcal>=t.kcalMin&&n.kcal<=t.kcalMax;
+  const proteinOk=n.protein>=t.proteinMin;
+  return {label:kcalOk&&proteinOk?'sehr passend':proteinOk?'proteinreich':'anpassbar',ok:kcalOk&&proteinOk,kcalOk,proteinOk};
+}
+function plannerScore(r,type,used=new Set(),targetOverride=null){
+  if(!r || plannerExcluded(r)) return -1e9;
+  if(type==='BREAKFAST' && plannerMealKind(r)!=='breakfast') return -1e9;
+  if(type!=='BREAKFAST' && plannerMealKind(r)==='breakfast') return -1e9;
+  if(r.phase && r.phase!=='ABNEHM') return -1e9;
+  const n=nutritionForTitle(r.title);
+  if(!n || n.kcal==null || n.protein==null) return -1e9;
+  const t=targetOverride||plannerTargets[type];
+  const kcalMid=(t.kcalMin+t.kcalMax)/2;
+  let score=130-Math.abs(n.kcal-kcalMid)/7-Math.abs(n.protein-t.proteinIdeal)*1.4;
+  if(n.kcal<t.kcalMin) score-=(t.kcalMin-n.kcal)/6;
+  if(n.kcal>t.kcalMax) score-=(n.kcal-t.kcalMax)/4;
+  if(n.protein<t.proteinMin) score-=(t.proteinMin-n.protein)*3.4;
+  if(used.has(r.title)) score-=90;
+  if(type==='DINNER' && Number(r.original_servings||0)>=4) score+=14;
+  const inv=plannerInventoryCoverage(r); score+=inv.ratio*18;
+  return score;
+}
+function bestPlannerRecipes(type,used=new Set(),limit=8,targetOverride=null){
+  return (recipeRows||[]).map(r=>({r,score:plannerScore(r,type,used,targetOverride)})).filter(x=>x.score>-1e8).sort((a,b)=>b.score-a.score).slice(0,limit).map(x=>x.r);
+}
+function dayNutritionFromDraft(meals){
+  const out={kcal:0,protein:0,complete:true};
+  meals.forEach(m=>{const n=nutritionForTitle(m?.recipe?.title);if(!n||n.kcal==null||n.protein==null){out.complete=false;return;}out.kcal+=n.kcal;out.protein+=n.protein;});
+  return out;
+}
+let smartWeekDraft=null;
+function generateSmartWeekDraft(start){
+  const used=new Set(), days=[];
+  let previousDinner=null;
+  for(let i=0;i<7;i++){
+    const date=addDaysIso(start,i), dow=dateFromIso(date).getDay(), weekday=[1,2,3,4,5].includes(dow);
+    let lunch=null, lunchIsLeftover=false;
+    if(i>0 && weekday && previousDinner){lunch=previousDinner;lunchIsLeftover=true;}
+    else lunch=bestPlannerRecipes('LUNCH',used,10)[0]||null;
+    const breakfasts=bestPlannerRecipes('BREAKFAST',used,10);
+    const dinners=bestPlannerRecipes('DINNER',used,20);
+    let best=null;
+    for(const b of breakfasts){for(const d of dinners){
+      if(d.id===lunch?.id) continue;
+      const nB=nutritionForTitle(b.title), nL=nutritionForTitle(lunch?.title), nD=nutritionForTitle(d.title);
+      if(!nB||!nL||!nD||[nB.kcal,nB.protein,nL.kcal,nL.protein,nD.kcal,nD.protein].some(v=>v==null)) continue;
+      const kcal=nB.kcal+nL.kcal+nD.kcal, protein=nB.protein+nL.protein+nD.protein;
+      let score=200-Math.abs(kcal-1750)/7-Math.max(0,90-protein)*5-Math.max(0,kcal-1800)/3;
+      score+=plannerScore(b,'BREAKFAST',used)*.15+plannerScore(d,'DINNER',used)*.15;
+      if(!best||score>best.score) best={b,d,score,kcal,protein};
+    }}
+    const breakfast=best?.b||breakfasts[0]||null, dinner=best?.d||dinners[0]||null;
+    if(breakfast)used.add(breakfast.title); if(!lunchIsLeftover&&lunch)used.add(lunch.title); if(dinner)used.add(dinner.title);
+    const meals=[
+      {type:'BREAKFAST',recipe:breakfast,leftover:false},
+      {type:'LUNCH',recipe:lunch,leftover:lunchIsLeftover},
+      {type:'DINNER',recipe:dinner,leftover:false}
+    ];
+    days.push({date,meals,nutrition:dayNutritionFromDraft(meals)});
+    previousDinner=dinner;
+  }
+  smartWeekDraft={start,days};
+  return smartWeekDraft;
+}
+function plannerPortionsFor(date,type){
+  const dow=dateFromIso(date).getDay();
+  if(type==='BREAKFAST') return 2;
+  if(type==='LUNCH') return [1,2,3,4,5].includes(dow)?2:4;
+  return 4;
+}
+function plannerMultiplier(recipe,date,type){
+  const servings=Number(recipe?.original_servings||0);
+  return servings>0?Math.max(.01,plannerPortionsFor(date,type)/servings):1;
+}
+function plannerMealMeta(day,meal,index){
+  const r=meal.recipe, n=r?nutritionForTitle(r.title):null;
+  if(!r)return 'Kein passendes Rezept mit vollständigen Nährwerten gefunden';
+  if(meal.leftover) return `vom Vorabend · Ulrike + Marcel${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
+  if(meal.type==='BREAKFAST') return `2 Erwachsene${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
+  if(meal.type==='DINNER'){
+    const next=smartWeekDraft?.days?.[index+1], nextWeekday=next && [1,2,3,4,5].includes(dateFromIso(next.date).getDay());
+    return `Familienabendessen${nextWeekday?' + 2 Lunchportionen für morgen':''}${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
+  }
+  return `${[1,2,3,4,5].includes(dateFromIso(day.date).getDay())?'Ulrike + Marcel':'Familie'}${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
+}
+function smartWeekDraftHtml(){
+  if(!smartWeekDraft)return '';
+  return smartWeekDraft.days.map((d,di)=>{
+    const n=d.nutrition;
+    const dayOk=n.complete&&n.kcal>=1700&&n.kcal<=1800&&n.protein>=90;
+    const status=!n.complete?'unvollständig':dayOk?'✓ Zielkorridor':'≈ noch anpassbar';
+    return `<article class="item"><div class="body"><div class="top"><h2>${esc(deDayLabel(d.date))}</h2><span class="pill">${esc(status)}</span></div>
+      <div class="meta" style="margin-bottom:8px">Du bei je 1 Buchportion: ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein${n.complete?'':' · nicht alle Werte vollständig'}</div>
+      ${d.meals.map((m,mi)=>{const r=m.recipe,nn=r?nutritionForTitle(r.title):null,ms=mealTargetStatus(m.type,nn),t=plannerTargets[m.type];return `<div style="padding:10px 0;border-top:1px solid #e7e1d5"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${mealLabelFromType(m.type,d.date)}</b><br>${r?recipeLink(r.title,r.id):'<span class="muted">kein Treffer</span>'}</div><span class="pill" style="white-space:nowrap">${esc(ms.label)}</span></div><div class="meta">${nn?`${Math.round(nn.kcal)} kcal · ${Math.round(nn.protein)} g Protein / Portion`:''}${m.leftover?' · Rest vom Vorabend':''}<br>Ziel: ${t.kcalMin}–${t.kcalMax} kcal · ≥${t.proteinMin} g Protein</div>${!m.leftover?`<button class="secondary" style="margin-top:7px;padding:7px 10px" onclick="cycleSmartSuggestion(${di},${mi})">Nächsten Vorschlag</button>`:''}</div>`}).join('')}
+    </div></article>`;
+  }).join('');
+}
+function refreshSmartWeekOverlay(){
+  const el=document.getElementById('smartWeekResults'); if(el)el.innerHTML=smartWeekDraftHtml();
+}
+function cycleSmartSuggestion(dayIndex,mealIndex){
+  const day=smartWeekDraft?.days?.[dayIndex], meal=day?.meals?.[mealIndex]; if(!day||!meal||meal.leftover)return;
+  const used=new Set(smartWeekDraft.days.flatMap(d=>d.meals.map(m=>m.recipe?.title).filter(Boolean)));
+  used.delete(meal.recipe?.title);
+  const list=bestPlannerRecipes(meal.type,used,12);
+  if(!list.length)return;
+  const pos=Math.max(0,list.findIndex(r=>r.id===meal.recipe?.id));
+  meal.recipe=list[(pos+1)%list.length];
+  if(meal.type==='DINNER'){
+    const next=smartWeekDraft.days[dayIndex+1];
+    if(next && next.meals[1]?.leftover) next.meals[1].recipe=meal.recipe;
+  }
+  smartWeekDraft.days.forEach(d=>d.nutrition=dayNutritionFromDraft(d.meals));
+  refreshSmartWeekOverlay();
+}
+function openSmartWeekPlanner(){
+  const start=nextMondayIso(); generateSmartWeekDraft(start);
+  const overlay=document.createElement('div');overlay.id='smartWeekPlanner';overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.46);z-index:10000;display:flex;align-items:flex-end;justify-content:center;padding:10px';
+  overlay.innerHTML=`<section style="width:min(720px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px;max-height:94vh;overflow:auto"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><div class="eyebrow">INTELLIGENTE WOCHENPLANUNG</div><h2 style="margin:4px 0 0">Woche konkret planen</h2></div><button class="icon" onclick="document.getElementById('smartWeekPlanner')?.remove()">×</button></div>
+    <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Berücksichtigt</b><br><span class="muted">Mahlzeitenziele nach kcal und Protein · Tagesziel 1700–1800 kcal und ≥90 g Protein für dich · Marcel separat über Portionsaufteilung · Abnehmphase · glutenfreie Rezeptbasis · Vorrat als Bonus · keine Apfel-/Haselnussrezepte, kein Fenchel, keine Shrimps/Garnelen, keine Kichererbsen · möglichst wenig Wiederholungen · Mo–Fr Lunch aus Meal-Prep, wenn sinnvoll.</span></div></div>
+    <label style="display:block;margin-top:14px">Wochenstart <input id="smartWeekStart" type="date" value="${start}" style="width:100%" onchange="generateSmartWeekDraft(this.value);refreshSmartWeekOverlay()"></label>
+    <div id="smartWeekResults" class="list" style="margin-top:14px">${smartWeekDraftHtml()}</div>
+    <div style="display:flex;gap:10px;position:sticky;bottom:-20px;background:#fffdf7;padding:14px 0 2px"><button class="secondary" style="flex:1" onclick="generateSmartWeekDraft(document.getElementById('smartWeekStart').value);refreshSmartWeekOverlay()">Neu berechnen</button><button class="primary" style="flex:1.4" onclick="applySmartWeekDraft()">Diese Woche übernehmen</button></div>
+  </section>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.appendChild(overlay);
+}
+async function applySmartWeekDraft(){
+  if(!smartWeekDraft||!householdId)return;
+  const start=smartWeekDraft.start,end=smartWeekDraft.days.at(-1).date;
+  const payload=[];
+  smartWeekDraft.days.forEach((d,di)=>d.meals.forEach((m,mi)=>{
+    if(!m.recipe)return;
+    const prepDate=m.leftover?addDaysIso(d.date,-1):null;
+    payload.push({household_id:householdId,meal_date:d.date,meal_type:m.type,recipe_id:m.recipe.id,batch_multiplier:plannerMultiplier(m.recipe,d.date,m.type),prep_date:prepDate,portable:m.type==='LUNCH'&&[1,2,3,4,5].includes(dateFromIso(d.date).getDay()),status:'planned',notes:`Intelligente Wochenplanung · ${plannerMealMeta(d,m,di)}`});
+  }));
+  const {error:delErr}=await sb.from('meal_plan_items').delete().eq('household_id',householdId).gte('meal_date',start).lte('meal_date',end);
+  if(delErr){alert('Der bisherige Wochenplan konnte nicht ersetzt werden: '+delErr.message);return;}
+  const {error}=await sb.from('meal_plan_items').insert(payload);
+  if(error){alert('Die intelligente Wochenplanung konnte nicht gespeichert werden: '+error.message);return;}
+  smartWeekDraft.days.forEach((d,di)=>{
+    const day=ensurePlanDay(d.date);day.phase=phaseLabelForDate(d.date);day.note='Intelligent geplant nach kcal, Protein, Vorrat und euren Ausschlüssen.';
+    day.meals=d.meals.map((m,mi)=>[mealLabelFromType(m.type,d.date),m.recipe?.title||'–',plannerMealMeta(d,m,di),m.recipe?.id||null]);
+  });
+  planDay=start;
+  document.getElementById('smartWeekPlanner')?.remove();
+  await refreshSmartShopping(false);await loadRows(false);activeTab='plan';renderApp();
+  alert('Woche gespeichert. Einkauf und Biokistenbedarf wurden neu berechnet.');
 }
 
 function nutritionForDay(day){
@@ -643,9 +899,10 @@ function renderToday(){
 
     <section class="list">
       ${d.meals.map((m,i)=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<article class="item"><div class="body">
-        <div class="top"><h2>${m[0]} · ${m[1]}</h2><span class="pill">${d.phase}</span></div>
+        <div class="top"><h2>${esc(m[0])} · ${mealRecipeHtml(m)}</h2><span class="pill">${d.phase}</span></div>
         <div class="meta">${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</div>
         ${splitMeta(todayIso,m)}
+        ${mealRecipeOpenButton(todayIso,i,m)}
         <button onclick="openPortionSplit('${todayIso}',${i})" style="margin-top:10px;padding:10px 14px;border:0;border-radius:14px;background:#294936;color:white;font-weight:700">So aufteilen</button>${changeMealButton(todayIso,i)}
       </div></article>`}).join('')}
     </section>
@@ -672,6 +929,7 @@ function renderPlan(){
     <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
       <div><b>09.09.–14.09.</b><br><span class="muted">Meal Prep: Abendessen → 2 Erwachsenenportionen für den nächsten Mittag</span></div>
     </section>
+    <button class="primary" onclick="openSmartWeekPlanner()" style="width:100%;margin:0 0 16px;padding:14px 16px;border-radius:16px;font-weight:900">✨ Woche intelligent planen</button>
 
     <div class="eyebrow" style="margin:4px 0 7px">AKTUELLER PLAN · 09.–14.09.</div>
     <section style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:4px 0 14px">
@@ -689,7 +947,7 @@ function renderPlan(){
           <article class="item" onclick="setPlanDay('${key}')" style="cursor:pointer">
             <div class="body">
               <div class="top"><h2>${x.label}</h2><span class="pill">${x.phase}</span></div>
-              ${x.meals.map(m=>`<p class="desc" style="margin:5px 0"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}</span></p>`).join('')}
+              ${x.meals.map(m=>`<p class="desc" style="margin:5px 0"><b>${esc(m[0])}:</b> ${mealRecipeHtml(m)} <span class="muted">· ${m[2]}</span></p>`).join('')}
             </div>
           </article>`).join('')}
       </div>
@@ -702,8 +960,9 @@ function renderPlan(){
     <section class="list"><article class="item"><div class="body">
       <div class="top"><h2>${d.label}</h2><span class="pill">${d.phase}</span></div>
       ${d.meals.map((m,i)=>{const title=plainRecipeTitle(m[1]);const tm=timeMetaFor(title);return `<div style="padding:10px 0;border-bottom:1px solid #e7e1d5">
-        <p class="desc" style="margin:0"><b>${m[0]}:</b> ${m[1]} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</span></p>
+        <p class="desc" style="margin:0"><b>${esc(m[0])}:</b> ${mealRecipeHtml(m)} <span class="muted">· ${m[2]}${tm?` · ${tm}`:''}${nutritionBadge(title)?` · ${nutritionBadge(title)} / Portion`:''}</span></p>
         ${splitMeta(planDay,m)}
+        ${mealRecipeOpenButton(planDay,i,m)}
         <button onclick="openPortionSplit('${planDay}',${i})" style="margin-top:8px;padding:9px 12px;border:1px solid #294936;border-radius:13px;background:#fffdf7;color:#294936;font-weight:700">So aufteilen</button>${changeMealButton(planDay,i)}
       </div>`}).join('')}
       ${(d.preps||[]).map(x=>`<div style="height:10px"></div>${prepCard(x[0],x[1]||'',`${x[2]}${timeMetaFor(x[0])?` · ${timeMetaFor(x[0])}`:''}`)}`).join('')}
@@ -2618,12 +2877,22 @@ async function loadRows(doRefresh=true){
   if(invData) inventoryRows=invData;
 
   const {data:recipeDataRows,error:recipeLoadError}=await sb.from('recipes')
-    .select('id,title,phase,source_page,original_servings,notes,recipe_original_sources(original_ingredients,original_steps,gluten_free_adaptation,source_capture)')
+    .select('id,title,phase,source_page,original_servings,notes,recipe_original_sources(original_ingredients,original_steps,gluten_free_adaptation,source_capture),recipe_ingredients(food_id,quantity,unit,optional,foods(name))')
     .eq('household_id',householdId)
     .order('source_page',{ascending:true});
   recipeRows=recipeLoadError?[]:(recipeDataRows||[]);
   rebuildNutritionDb();
   if(recipeLoadError) msg='Rezepte konnten nicht geladen werden: '+recipeLoadError.message;
+
+  const {data:mealPlanData,error:mealPlanError}=await sb.from('meal_plan_items')
+    .select('id,meal_date,meal_type,recipe_id,batch_multiplier,prep_date,portable,status,notes,recipes(id,title,phase,source_page)')
+    .eq('household_id',householdId)
+    .gte('meal_date','2026-09-01')
+    .order('meal_date',{ascending:true});
+  mealPlanRows=mealPlanError?[]:(mealPlanData||[]);
+  if(mealPlanError) msg='Wochenplan konnte nicht geladen werden: '+mealPlanError.message;
+  mergeDbMealPlan();
+  loadPlanOverrides();
 
   const {data:allFoods}=await sb.from('foods').select('id,name,default_unit,category').order('name',{ascending:true});
   if(allFoods) foodOptions=allFoods;
