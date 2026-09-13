@@ -1595,63 +1595,91 @@ function renderCookMode(){
   </main>`;
 }
 
+function dbRecipeSource(r){
+  const src=Array.isArray(r?.recipe_original_sources)?r.recipe_original_sources[0]:r?.recipe_original_sources;
+  return src||{};
+}
+function recipePageLabel(r){ return r?.source_page?`Kochbuch S. ${esc(String(r.source_page))}`:'Kochbuch'; }
+function recipeServingLabel(r){
+  const n=Number(r?.original_servings||0);
+  return n?`${n.toLocaleString('de-DE',{maximumFractionDigits:1})} ${n===1?'Portion':'Portionen'}`:'Portionszahl nicht angegeben';
+}
+function recipeSearchText(r){
+  const src=dbRecipeSource(r);
+  return [r?.title,r?.phase,r?.source_page,r?.notes,src?.gluten_free_adaptation,...(src?.original_ingredients||[])].filter(Boolean).join(' ').toLowerCase();
+}
+let recipeListQuery='';
+function setRecipeListQuery(v){ recipeListQuery=(v||'').toLowerCase(); renderRecipes(); }
+
 function renderRecipes(){
   if(recipeOpen) return renderRecipeDetail(recipeOpen);
+  const dbRecipes=(recipeRows||[]).filter(r=>{
+    if(!recipeListQuery) return true;
+    return recipeSearchText(r).includes(recipeListQuery);
+  });
 
   document.getElementById('app').innerHTML=`<main class="shell">
-  <header><div><div class="eyebrow">KOCHBUCH · AKTUELLER PLAN</div><h1>Rezeptkarten</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
+  <header><div><div class="eyebrow">KOCHBUCH · ${recipeRows.length||0} REZEPTE</div><h1>Rezeptkarten</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
 
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
-    <div><b>Original & Anpassung getrennt</b><br><span class="muted">Die Kochbuchzutaten bleiben sichtbar; Änderungen stehen extra dabei.</span></div>
+    <div><b>Direkt aus der Rezeptdatenbank</b><br><span class="muted">Alle gespeicherten Originalrezepte werden hier automatisch angezeigt. Zutaten und Zubereitung stammen aus den gesicherten Kochbuchseiten.</span></div>
   </section>
-  
 
-  <section class="notice" style="margin-top:14px;background:#f7f2e9;border-color:#e6dccb"><div><b>Rezeptkarten öffnen</b><br><span class="muted">Tippe eine Karte an. Im Plan sind Gerichte mit Rezeptkarte zusätzlich als grüne Schaltfläche markiert.</span></div></section>
+  <section style="margin-top:14px"><input value="${esc(recipeListQuery)}" oninput="setRecipeListQuery(this.value)" placeholder="Rezept, Zutat oder Seite suchen …" style="width:100%;padding:14px 16px;border:1px solid #d9d7ca;border-radius:16px;background:#fffdf8;font:inherit"></section>
 
   <section class="list">
-    ${Object.entries(recipeData).map(([key,r])=>`
-      <article class="item" onclick="recipeOpen='${key}';renderRecipes()" style="cursor:pointer">
+    ${dbRecipes.length?dbRecipes.map(r=>{
+      const src=dbRecipeSource(r); const complete=(src.original_ingredients||[]).length>0&&(src.original_steps||[]).length>0;
+      return `<article class="item" onclick="recipeOpen='${r.id}';renderRecipes()" style="cursor:pointer">
         <div class="body">
-          <div class="top"><h2>${r.title}</h2><span class="pill">${r.phase}</span></div>
-          <p class="desc">${r.meta}</p>
-          ${timeMetaFor(r.title)?`<div class="meta"><b>Zeit:</b> ${timeMetaFor(r.title)}</div>`:''}
-          ${r.adaptation?`<div class="meta"><b>Anpassung:</b> ${r.adaptation}</div>`:''}
+          <div class="top"><h2>${esc(r.title)}</h2><span class="pill">${esc(r.phase||'Kochbuch')}</span></div>
+          <p class="desc">${recipePageLabel(r)} · ${recipeServingLabel(r)}</p>
+          <div class="meta">${complete?'Originalzutaten & Zubereitung vollständig':'⚠️ Rezeptdaten unvollständig'}</div>
+          ${src.gluten_free_adaptation?`<div class="meta"><b>Glutenfrei:</b> ${esc(src.gluten_free_adaptation)}</div>`:''}
           <div class="meta">Rezept öffnen ›</div>
         </div>
-      </article>`).join('')}
+      </article>`;
+    }).join(''):`<section class="notice"><div><b>Keine Treffer</b><br><span class="muted">Ändere den Suchbegriff.</span></div></section>`}
   </section>
 
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><b onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
 
 function renderRecipeDetail(key){
-  const r=recipeData[key];
+  const db=recipeRows.find(x=>x.id===key);
+  // Alte, fest hinterlegte Karten bleiben als Fallback für bestehende Plan-Links erhalten.
+  if(!db){
+    const r=recipeData[key];
+    if(!r){ recipeOpen=null; return renderRecipes(); }
+    document.getElementById('app').innerHTML=`<main class="shell">
+    <header><div><div class="eyebrow">${r.phase}</div><h1 style="font-size:38px">${r.title}</h1></div><div class="actions"><button class="icon" onclick="recipeOpen=null;renderRecipes()">←</button></div></header>
+    <section class="item"><div class="body"><div class="top"><h2>Originalzutaten</h2><span class="pill">Kochbuch</span></div><div class="desc" style="line-height:1.7">${r.ingredients.map(x=>`• ${x}`).join('<br>')}</div></div></section>
+    ${r.adaptation?`<section class="notice" style="margin-top:14px;background:#fff4d9;border-color:#ead39a"><div><b>Anpassung</b><br>${r.adaptation}<br><span class="muted">${r.note}</span></div></section>`:''}
+    ${tm6Cook[key]?`<button onclick="startCook('${key}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">Im TM6 kochen</button>`:''}
+    <nav class="bottom"><span onclick="recipeOpen=null;activeTab='today';renderApp()">Heute</span><span onclick="recipeOpen=null;activeTab='plan';renderApp()">Plan</span><b onclick="recipeOpen=null;activeTab='recipes';renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="recipeOpen=null;activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
+    return;
+  }
+  const src=dbRecipeSource(db);
+  const ingredients=src.original_ingredients||[];
+  const steps=src.original_steps||[];
+  const legacyKey=Object.keys(recipeData).find(k=>recipeData[k]?.title===db.title);
   document.getElementById('app').innerHTML=`<main class="shell">
-  <header><div><div class="eyebrow">${r.phase}</div><h1 style="font-size:38px">${r.title}</h1></div><div class="actions"><button class="icon" onclick="recipeOpen=null;renderRecipes()">←</button></div></header>
+  <header><div><div class="eyebrow">${esc(db.phase||'KOCHBUCH')}</div><h1 style="font-size:38px">${esc(db.title)}</h1></div><div class="actions"><button class="icon" onclick="recipeOpen=null;renderRecipes()">←</button></div></header>
 
-  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0">
-    <div><b>${r.meta}</b><br><span class="muted">${timeMetaFor(r.title)?`${timeMetaFor(r.title)} · `:''}Quelle: Schlank mit Genuss – Das Bauchweg Kochbuch</span></div>
-  </section>
-  <section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Nährwerte</b><br><span class="muted">${nutritionBadge(r.title)?`${nutritionBadge(r.title)} pro Kochbuchportion`:'Das Kochbuch enthält für dieses Rezept keine Nährwertangabe. Es wird noch nicht in die Tages-Summe eingerechnet.'}</span></div></section>
+  <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>${recipePageLabel(db)} · ${recipeServingLabel(db)}</b><br><span class="muted">Original aus „Schlank mit Genuss – Das Bauchweg Kochbuch“</span></div></section>
 
-  <section class="item" style="margin-top:14px">
-    <div class="body">
-      <div class="top"><h2>Originalzutaten</h2><span class="pill">Kochbuch</span></div>
-      <div class="desc" style="line-height:1.7">${r.ingredients.map(x=>`• ${x}`).join('<br>')}</div>
-    </div>
-  </section>
+  ${db.notes?`<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Nährwerte / Originalhinweis</b><br><span class="muted">${esc(db.notes)}</span></div></section>`:''}
 
-  ${r.adaptation?`
-  <section class="notice" style="margin-top:14px;background:#fff4d9;border-color:#ead39a">
-    <div><b>Anpassung für euren Plan</b><br>${r.adaptation}<br><span class="muted">${r.note}</span></div>
-  </section>`:
-  `<section class="notice" style="margin-top:14px"><div><b>Hinweis</b><br><span class="muted">${r.note}</span></div></section>`}
+  <section class="item" style="margin-top:14px"><div class="body"><div class="top"><h2>Originalzutaten</h2><span class="pill">${ingredients.length} Einträge</span></div><div class="desc" style="line-height:1.7">${ingredients.length?ingredients.map(x=>`• ${esc(typeof x==='string'?x:JSON.stringify(x))}`).join('<br>'):'Keine Zutaten gespeichert.'}</div></div></section>
 
-  ${tm6Cook[key]?`<button onclick="startCook('${key}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">Im TM6 kochen</button>`:`<section class="notice" style="margin-top:18px"><div><b>Rezeptkarte vollständig</b><br><span class="muted">Für dieses Rezept ist noch kein verifizierter TM6-Kochmodus hinterlegt. Die Originalzutaten sind oben vollständig gespeichert.</span></div></section>`}
+  <section class="item" style="margin-top:14px"><div class="body"><div class="top"><h2>Originalzubereitung</h2><span class="pill">${steps.length} Schritte</span></div><div class="desc" style="line-height:1.65">${steps.length?steps.map((x,i)=>`<div style="margin-bottom:12px"><b>${esc(String(x.step||i+1))}.</b> ${esc(x.instruction||String(x))}</div>`).join(''):'Keine Zubereitung gespeichert.'}</div></div></section>
+
+  ${src.gluten_free_adaptation?`<section class="notice" style="margin-top:14px;background:#fff4d9;border-color:#ead39a"><div><b>Glutenfreie Anpassung</b><br>${esc(src.gluten_free_adaptation)}</div></section>`:''}
+
+  ${legacyKey&&tm6Cook[legacyKey]?`<button onclick="startCook('${legacyKey}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:700">Im TM6 kochen</button>`:`<section class="notice" style="margin-top:18px"><div><b>Rezeptkarte vollständig</b><br><span class="muted">Originalzutaten und Originalzubereitung sind gespeichert. Ein geprüfter TM6-Kochmodus kann separat ergänzt werden.</span></div></section>`}
 
   <nav class="bottom"><span onclick="recipeOpen=null;activeTab='today';renderApp()">Heute</span><span onclick="recipeOpen=null;activeTab='plan';renderApp()">Plan</span><b onclick="recipeOpen=null;activeTab='recipes';renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="recipeOpen=null;activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
 }
-
 
 
 function openPreparedMealEditor(id){
@@ -2192,7 +2220,10 @@ async function loadRows(doRefresh=true){
   mealSubstitutions=subData||[];
   if(invData) inventoryRows=invData;
 
-  const {data:recipeDataRows,error:recipeLoadError}=await sb.from('recipes').select('id,title,phase,source_page,original_servings,notes').eq('household_id',householdId).order('source_page',{ascending:true});
+  const {data:recipeDataRows,error:recipeLoadError}=await sb.from('recipes')
+    .select('id,title,phase,source_page,original_servings,notes,recipe_original_sources(original_ingredients,original_steps,gluten_free_adaptation,source_capture)')
+    .eq('household_id',householdId)
+    .order('source_page',{ascending:true});
   recipeRows=recipeLoadError?[]:(recipeDataRows||[]);
   if(recipeLoadError) msg='Rezepte konnten nicht geladen werden: '+recipeLoadError.message;
 
