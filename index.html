@@ -628,31 +628,46 @@ function dayNutritionFromDraft(meals){
   return out;
 }
 let smartWeekDraft=null;
+function recipeFromExistingDinner(date){
+  const row=(mealPlanRows||[]).find(x=>x.meal_date===date && x.meal_type==='DINNER' && x.recipe_id);
+  if(!row)return null;
+  return (recipeRows||[]).find(r=>r.id===row.recipe_id)||null;
+}
+function lunchPortionsForDate(date){
+  const dow=dateFromIso(date).getDay();
+  return [1,2,3,4,5].includes(dow)?2:4;
+}
+function dinnerPortionsForDate(date){
+  // Einmal kochen: Familienabendessen plus Mittag des Folgetags direkt mitproduzieren.
+  return 4 + lunchPortionsForDate(addDaysIso(date,1));
+}
 function generateSmartWeekDraft(start){
   const used=new Set(), days=[];
-  let previousDinner=null;
+  let previousDinner=recipeFromExistingDinner(addDaysIso(start,-1));
   for(let i=0;i<7;i++){
-    const date=addDaysIso(start,i), dow=dateFromIso(date).getDay(), weekday=[1,2,3,4,5].includes(dow);
-    let lunch=null, lunchIsLeftover=false;
-    if(i>0 && weekday && previousDinner){lunch=previousDinner;lunchIsLeftover=true;}
-    else lunch=bestPlannerRecipes('LUNCH',used,10)[0]||null;
+    const date=addDaysIso(start,i);
+    const lunch=previousDinner||null;
+    const lunchIsLeftover=!!lunch;
     const breakfasts=bestPlannerRecipes('BREAKFAST',used,10);
     const dinners=bestPlannerRecipes('DINNER',used,20);
     let best=null;
     for(const b of breakfasts){for(const d of dinners){
       if(d.id===lunch?.id) continue;
       const nB=nutritionForTitle(b.title), nL=nutritionForTitle(lunch?.title), nD=nutritionForTitle(d.title);
-      if(!nB||!nL||!nD||[nB.kcal,nB.protein,nL.kcal,nL.protein,nD.kcal,nD.protein].some(v=>v==null)) continue;
-      const kcal=nB.kcal+nL.kcal+nD.kcal, protein=nB.protein+nL.protein+nD.protein;
+      if(!nB||!nD||nB.kcal==null||nB.protein==null||nD.kcal==null||nD.protein==null) continue;
+      const lunchKcal=nL?.kcal??0, lunchProtein=nL?.protein??0;
+      const kcal=nB.kcal+lunchKcal+nD.kcal, protein=nB.protein+lunchProtein+nD.protein;
       let score=200-Math.abs(kcal-1750)/7-Math.max(0,90-protein)*5-Math.max(0,kcal-1800)/3;
       score+=plannerScore(b,'BREAKFAST',used)*.15+plannerScore(d,'DINNER',used)*.15;
+      // Bonus für proteinreiches Abendessen, weil es zugleich das Mittagessen des Folgetags liefert.
+      score+=Math.min(12,Math.max(0,(nD.protein||0)-25)*.35);
       if(!best||score>best.score) best={b,d,score,kcal,protein};
     }}
     const breakfast=best?.b||breakfasts[0]||null, dinner=best?.d||dinners[0]||null;
-    if(breakfast)used.add(breakfast.title); if(!lunchIsLeftover&&lunch)used.add(lunch.title); if(dinner)used.add(dinner.title);
+    if(breakfast)used.add(breakfast.title); if(dinner)used.add(dinner.title);
     const meals=[
       {type:'BREAKFAST',recipe:breakfast,leftover:false},
-      {type:'LUNCH',recipe:lunch,leftover:lunchIsLeftover},
+      {type:'LUNCH',recipe:lunch,leftover:lunchIsLeftover,mealPrepMissing:!lunch},
       {type:'DINNER',recipe:dinner,leftover:false}
     ];
     days.push({date,meals,nutrition:dayNutritionFromDraft(meals)});
@@ -662,10 +677,10 @@ function generateSmartWeekDraft(start){
   return smartWeekDraft;
 }
 function plannerPortionsFor(date,type){
-  const dow=dateFromIso(date).getDay();
   if(type==='BREAKFAST') return 2;
-  if(type==='LUNCH') return [1,2,3,4,5].includes(dow)?2:4;
-  return 4;
+  if(type==='LUNCH') return lunchPortionsForDate(date);
+  if(type==='DINNER') return dinnerPortionsForDate(date);
+  return 1;
 }
 function plannerMultiplier(recipe,date,type){
   const servings=Number(recipe?.original_servings||0);
@@ -673,14 +688,15 @@ function plannerMultiplier(recipe,date,type){
 }
 function plannerMealMeta(day,meal,index){
   const r=meal.recipe, n=r?nutritionForTitle(r.title):null;
+  if(meal.mealPrepMissing) return 'Kein separates Kochen geplant · dafür muss am Vorabend eine zusätzliche Portion eingeplant werden';
   if(!r)return 'Kein passendes Rezept mit vollständigen Nährwerten gefunden';
-  if(meal.leftover) return `vom Vorabend · Ulrike + Marcel${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
+  if(meal.leftover) return `Meal-Prep vom Vorabend · ${lunchPortionsForDate(day.date)} Portionen${[1,2,3,4,5].includes(dateFromIso(day.date).getDay())?' für Ulrike + Marcel':' für die Familie'}${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
   if(meal.type==='BREAKFAST') return `2 Erwachsene${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
   if(meal.type==='DINNER'){
-    const next=smartWeekDraft?.days?.[index+1], nextWeekday=next && [1,2,3,4,5].includes(dateFromIso(next.date).getDay());
-    return `Familienabendessen${nextWeekday?' + 2 Lunchportionen für morgen':''}${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
+    const nextDate=addDaysIso(day.date,1), extra=lunchPortionsForDate(nextDate), total=dinnerPortionsForDate(day.date);
+    return `Einmal kochen · ${total} Portionen insgesamt: 4 fürs Abendessen + ${extra} fürs Mittag am ${deDayLabel(nextDate)}${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
   }
-  return `${[1,2,3,4,5].includes(dateFromIso(day.date).getDay())?'Ulrike + Marcel':'Familie'}${n?` · ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
+  return `${n?`${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein / Portion`:''}`;
 }
 function smartWeekDraftHtml(){
   if(!smartWeekDraft)return '';
@@ -690,7 +706,7 @@ function smartWeekDraftHtml(){
     const status=!n.complete?'unvollständig':dayOk?'✓ Zielkorridor':'≈ noch anpassbar';
     return `<article class="item"><div class="body"><div class="top"><h2>${esc(deDayLabel(d.date))}</h2><span class="pill">${esc(status)}</span></div>
       <div class="meta" style="margin-bottom:8px">Du bei je 1 Buchportion: ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein${n.complete?'':' · nicht alle Werte vollständig'}</div>
-      ${d.meals.map((m,mi)=>{const r=m.recipe,nn=r?nutritionForTitle(r.title):null,ms=mealTargetStatus(m.type,nn),t=plannerTargets[m.type];return `<div style="padding:10px 0;border-top:1px solid #e7e1d5"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${mealLabelFromType(m.type,d.date)}</b><br>${r?recipeLink(r.title,r.id):'<span class="muted">kein Treffer</span>'}</div><span class="pill" style="white-space:nowrap">${esc(ms.label)}</span></div><div class="meta">${nn?`${Math.round(nn.kcal)} kcal · ${Math.round(nn.protein)} g Protein / Portion`:''}${m.leftover?' · Rest vom Vorabend':''}<br>Ziel: ${t.kcalMin}–${t.kcalMax} kcal · ≥${t.proteinMin} g Protein</div>${!m.leftover?`<button class="secondary" style="margin-top:7px;padding:7px 10px" onclick="cycleSmartSuggestion(${di},${mi})">Nächsten Vorschlag</button>`:''}</div>`}).join('')}
+      ${d.meals.map((m,mi)=>{const r=m.recipe,nn=r?nutritionForTitle(r.title):null,ms=mealTargetStatus(m.type,nn),t=plannerTargets[m.type];return `<div style="padding:10px 0;border-top:1px solid #e7e1d5"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${mealLabelFromType(m.type,d.date)}</b><br>${r?recipeLink(r.title,r.id):'<span class="muted">Meal-Prep vom Vorabend noch nicht vorhanden</span>'}</div><span class="pill" style="white-space:nowrap">${esc(m.mealPrepMissing?'Meal-Prep fehlt':ms.label)}</span></div><div class="meta">${plannerMealMeta(d,m,di)}<br>${nn?`Ziel: ${t.kcalMin}–${t.kcalMax} kcal · ≥${t.proteinMin} g Protein`:''}</div>${!m.leftover&&!m.mealPrepMissing?`<button class="secondary" style="margin-top:7px;padding:7px 10px" onclick="cycleSmartSuggestion(${di},${mi})">Nächsten Vorschlag</button>`:''}</div>`}).join('')}
     </div></article>`;
   }).join('');
 }
@@ -698,7 +714,7 @@ function refreshSmartWeekOverlay(){
   const el=document.getElementById('smartWeekResults'); if(el)el.innerHTML=smartWeekDraftHtml();
 }
 function cycleSmartSuggestion(dayIndex,mealIndex){
-  const day=smartWeekDraft?.days?.[dayIndex], meal=day?.meals?.[mealIndex]; if(!day||!meal||meal.leftover)return;
+  const day=smartWeekDraft?.days?.[dayIndex], meal=day?.meals?.[mealIndex]; if(!day||!meal||meal.leftover||meal.mealPrepMissing)return;
   const used=new Set(smartWeekDraft.days.flatMap(d=>d.meals.map(m=>m.recipe?.title).filter(Boolean)));
   used.delete(meal.recipe?.title);
   const list=bestPlannerRecipes(meal.type,used,12);
@@ -707,7 +723,7 @@ function cycleSmartSuggestion(dayIndex,mealIndex){
   meal.recipe=list[(pos+1)%list.length];
   if(meal.type==='DINNER'){
     const next=smartWeekDraft.days[dayIndex+1];
-    if(next && next.meals[1]?.leftover) next.meals[1].recipe=meal.recipe;
+    if(next){next.meals[1].recipe=meal.recipe;next.meals[1].leftover=true;next.meals[1].mealPrepMissing=false;}
   }
   smartWeekDraft.days.forEach(d=>d.nutrition=dayNutritionFromDraft(d.meals));
   refreshSmartWeekOverlay();
@@ -716,7 +732,7 @@ function openSmartWeekPlanner(){
   const start=nextMondayIso(); generateSmartWeekDraft(start);
   const overlay=document.createElement('div');overlay.id='smartWeekPlanner';overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.46);z-index:10000;display:flex;align-items:flex-end;justify-content:center;padding:10px';
   overlay.innerHTML=`<section style="width:min(720px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px;max-height:94vh;overflow:auto"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><div class="eyebrow">INTELLIGENTE WOCHENPLANUNG</div><h2 style="margin:4px 0 0">Woche konkret planen</h2></div><button class="icon" onclick="document.getElementById('smartWeekPlanner')?.remove()">×</button></div>
-    <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Berücksichtigt</b><br><span class="muted">Mahlzeitenziele nach kcal und Protein · Tagesziel 1700–1800 kcal und ≥90 g Protein für dich · Marcel separat über Portionsaufteilung · Abnehmphase · glutenfreie Rezeptbasis · Vorrat als Bonus · keine Apfel-/Haselnussrezepte, kein Fenchel, keine Shrimps/Garnelen, keine Kichererbsen · möglichst wenig Wiederholungen · Mo–Fr Lunch aus Meal-Prep, wenn sinnvoll.</span></div></div>
+    <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Maximal einmal am Tag kochen</b><br><span class="muted">Mittagessen wird konsequent aus dem Abendessen des Vortags eingeplant. Die Abendportionen werden automatisch erhöht. Das Mittagessen wird beim Einkauf nicht ein zweites Mal als neues Rezept berechnet. Zusätzlich: kcal/Protein · Abnehmphase · glutenfrei · Vorrat · Ausschlüsse · möglichst wenig Wiederholungen.</span></div></div>
     <label style="display:block;margin-top:14px">Wochenstart <input id="smartWeekStart" type="date" value="${start}" style="width:100%" onchange="generateSmartWeekDraft(this.value);refreshSmartWeekOverlay()"></label>
     <div id="smartWeekResults" class="list" style="margin-top:14px">${smartWeekDraftHtml()}</div>
     <div style="display:flex;gap:10px;position:sticky;bottom:-20px;background:#fffdf7;padding:14px 0 2px"><button class="secondary" style="flex:1" onclick="generateSmartWeekDraft(document.getElementById('smartWeekStart').value);refreshSmartWeekOverlay()">Neu berechnen</button><button class="primary" style="flex:1.4" onclick="applySmartWeekDraft()">Diese Woche übernehmen</button></div>
@@ -730,20 +746,23 @@ async function applySmartWeekDraft(){
   smartWeekDraft.days.forEach((d,di)=>d.meals.forEach((m,mi)=>{
     if(!m.recipe)return;
     const prepDate=m.leftover?addDaysIso(d.date,-1):null;
-    payload.push({household_id:householdId,meal_date:d.date,meal_type:m.type,recipe_id:m.recipe.id,batch_multiplier:plannerMultiplier(m.recipe,d.date,m.type),prep_date:prepDate,portable:m.type==='LUNCH'&&[1,2,3,4,5].includes(dateFromIso(d.date).getDay()),status:'planned',notes:`Intelligente Wochenplanung · ${plannerMealMeta(d,m,di)}`});
+    // Meal-Prep-Mittag wird als bereits vom Vorabend vorbereitet gespeichert. Dadurch wird es
+    // angezeigt/verlinkt, aber refresh_smart_shopping zählt seine Zutaten nicht ein zweites Mal.
+    const status=m.leftover?'prepared':'planned';
+    payload.push({household_id:householdId,meal_date:d.date,meal_type:m.type,recipe_id:m.recipe.id,batch_multiplier:plannerMultiplier(m.recipe,d.date,m.type),prep_date:prepDate,portable:m.type==='LUNCH'&&[1,2,3,4,5].includes(dateFromIso(d.date).getDay()),status,notes:`Intelligente Wochenplanung · ${plannerMealMeta(d,m,di)}`});
   }));
   const {error:delErr}=await sb.from('meal_plan_items').delete().eq('household_id',householdId).gte('meal_date',start).lte('meal_date',end);
   if(delErr){alert('Der bisherige Wochenplan konnte nicht ersetzt werden: '+delErr.message);return;}
   const {error}=await sb.from('meal_plan_items').insert(payload);
   if(error){alert('Die intelligente Wochenplanung konnte nicht gespeichert werden: '+error.message);return;}
   smartWeekDraft.days.forEach((d,di)=>{
-    const day=ensurePlanDay(d.date);day.phase=phaseLabelForDate(d.date);day.note='Intelligent geplant nach kcal, Protein, Vorrat und euren Ausschlüssen.';
-    day.meals=d.meals.map((m,mi)=>[mealLabelFromType(m.type,d.date),m.recipe?.title||'–',plannerMealMeta(d,m,di),m.recipe?.id||null]);
+    const day=ensurePlanDay(d.date);day.phase=phaseLabelForDate(d.date);day.note='Intelligent geplant: maximal eine Kochrunde pro Tag; Mittag aus Meal-Prep vom Vorabend.';
+    day.meals=d.meals.filter(m=>m.recipe).map((m,mi)=>[mealLabelFromType(m.type,d.date),m.recipe?.title||'–',plannerMealMeta(d,m,di),m.recipe?.id||null]);
   });
   planDay=start;
   document.getElementById('smartWeekPlanner')?.remove();
   await refreshSmartShopping(false);await loadRows(false);activeTab='plan';renderApp();
-  alert('Woche gespeichert. Einkauf und Biokistenbedarf wurden neu berechnet.');
+  alert('Woche gespeichert. Mittag ist als Meal-Prep vom Vorabend eingeplant; der Einkauf zählt die Zutaten nur beim Abendessen.');
 }
 
 function nutritionForDay(day){
