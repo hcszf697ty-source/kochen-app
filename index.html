@@ -484,7 +484,7 @@ async function saveMealChange(date,index,recipeId){
   const mealType=mealTypeForLabel(meal[0]);
   if(householdId){
     const {error:delErr}=await sb.from('meal_plan_items').delete().eq('household_id',householdId).eq('meal_date',date).eq('meal_type',mealType); if(delErr){alert('Änderung konnte nicht vorbereitet werden: '+delErr.message);return;}
-    const {error}=await sb.from('meal_plan_items').insert({household_id:householdId,meal_date:date,meal_type:mealType,recipe_id:r.id,batch_multiplier:1,status:'PLANNED',notes:'Spontan in der App geändert'}); if(error){alert('Gericht konnte nicht gespeichert werden: '+error.message);return;}
+    const {error}=await sb.from('meal_plan_items').insert({household_id:householdId,meal_date:date,meal_type:mealType,recipe_id:r.id,batch_multiplier:1,status:'planned',notes:'Spontan in der App geändert'}); if(error){alert('Gericht konnte nicht gespeichert werden: '+error.message);return;}
   }
   weekPlan[date].meals[index][1]=r.title; weekPlan[date].meals[index][2]=`spontan geändert · Kochbuch S. ${r.source_page||'–'}`; savePlanOverride(date,index,r.title,weekPlan[date].meals[index][2]);
   document.getElementById('mealChanger')?.remove(); await refreshSmartShopping(false); await loadRows(false);
