@@ -1710,6 +1710,56 @@ function airfryerAdaptationText(db){
   parts.push('Korb nicht überfüllen; bei Stücken einmal wenden bzw. schütteln');
   return parts.join(' · ');
 }
+
+let originalCookRecipeId=null;
+let originalCookStep=0;
+function startOriginalCook(id){
+  const db=recipeRows.find(x=>x.id===id);
+  if(!db) return;
+  const steps=dbRecipeSource(db)?.original_steps||[];
+  if(!steps.length){ alert('Für dieses Rezept sind keine Zubereitungsschritte gespeichert.'); return; }
+  originalCookRecipeId=id; originalCookStep=0; renderOriginalCookMode();
+}
+function setOriginalCookStep(n){
+  const db=recipeRows.find(x=>x.id===originalCookRecipeId);
+  const steps=db?dbRecipeSource(db)?.original_steps||[]:[];
+  originalCookStep=Math.max(0,Math.min(n,steps.length-1));
+  renderOriginalCookMode();
+}
+function exitOriginalCook(){
+  const id=originalCookRecipeId;
+  originalCookRecipeId=null;
+  recipeOpen=id;
+  renderRecipes();
+}
+function renderOriginalCookMode(){
+  const db=recipeRows.find(x=>x.id===originalCookRecipeId);
+  if(!db){ originalCookRecipeId=null; return renderRecipes(); }
+  const src=dbRecipeSource(db);
+  const steps=src.original_steps||[];
+  if(!steps.length) return exitOriginalCook();
+  const s=steps[originalCookStep]||{};
+  const text=s.instruction||String(s);
+  const pct=Math.round(((originalCookStep+1)/steps.length)*100);
+  document.getElementById('app').innerHTML=`<main class="shell">
+    <header>
+      <div><div class="eyebrow">KOCHMODUS · ${originalCookStep+1}/${steps.length}</div><h1 style="font-size:38px">${esc(db.title)}</h1></div>
+      <div class="actions"><button class="icon" onclick="exitOriginalCook()" title="Kochmodus schließen">×</button></div>
+    </header>
+    <div style="height:8px;background:#e5e6df;border-radius:999px;overflow:hidden;margin:6px 0 18px"><div style="height:100%;width:${pct}%;background:#294936;border-radius:999px"></div></div>
+    <section class="item cook-card"><div class="body" style="width:100%">
+      <div class="cook-step-kicker">SCHRITT ${originalCookStep+1} VON ${steps.length}</div>
+      <h2 class="cook-step-title">${esc(s.title||`Schritt ${originalCookStep+1}`)}</h2>
+      <p class="cook-instruction">${esc(text)}</p>
+    </div></section>
+    <section class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Original aus dem Kochbuch</b><br><span class="muted">Keine Zutaten, Zeiten oder Geräteeinstellungen ergänzt. ${recipePageLabel(db)}.</span></div></section>
+    <div style="display:grid;grid-template-columns:${originalCookStep===0?'1fr':'1fr 2fr'};gap:12px;margin-top:18px">
+      ${originalCookStep>0?`<button onclick="setOriginalCookStep(originalCookStep-1)" style="padding:18px;border:1px solid #d9d7ca;border-radius:20px;background:#fffdf8;font-size:18px;font-weight:700">Zurück</button>`:''}
+      <button onclick="${originalCookStep<steps.length-1?'setOriginalCookStep(originalCookStep+1)':'exitOriginalCook()'}" style="padding:18px;border:0;border-radius:20px;background:#183425;color:white;font-size:20px;font-weight:800">${originalCookStep<steps.length-1?'Weiter':'Fertig'}</button>
+    </div>
+  </main>`;
+}
+
 function openDeviceInfo(id){
   const db=recipeRows.find(x=>x.id===id); if(!db)return;
   const tm=verifiedTm6KeyFor(db), af=airfryerSuitability(db);
@@ -1789,6 +1839,8 @@ function renderRecipeDetail(key){
   <section class="notice" style="margin-top:14px"><div><b>⏱ Kochzeit</b><br><span class="muted">${esc(recipeTimeInfo(db).label)}. Angezeigt werden nur ausdrücklich im Original genannte Zeitangaben; Vorbereitungszeit wird nicht erfunden.</span></div></section>
 
   ${db.notes?`<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Nährwerte / Originalhinweis</b><br><span class="muted">${esc(db.notes)}</span></div></section>`:''}
+
+  <button onclick="startOriginalCook('${db.id}')" style="width:100%;margin-top:18px;padding:18px;border:0;border-radius:22px;background:#183425;color:white;font-size:20px;font-weight:800">Kochmodus starten</button>
 
   <section class="item" style="margin-top:14px"><div class="body"><div class="top"><h2>Originalzutaten</h2><span class="pill">${ingredients.length} Einträge</span></div><div class="desc" style="line-height:1.7">${ingredients.length?ingredients.map(x=>`• ${esc(typeof x==='string'?x:JSON.stringify(x))}`).join('<br>'):'Keine Zutaten gespeichert.'}</div></div></section>
 
