@@ -1604,6 +1604,26 @@ function recipeServingLabel(r){
   const n=Number(r?.original_servings||0);
   return n?`${n.toLocaleString('de-DE',{maximumFractionDigits:1})} ${n===1?'Portion':'Portionen'}`:'Portionszahl nicht angegeben';
 }
+function recipeTimeInfo(r){
+  const src=dbRecipeSource(r);
+  const steps=src?.original_steps||[];
+  let min=0,max=0,found=false;
+  for(const st of steps){
+    const text=String(st?.instruction||st||'');
+    const rx=/(\d+)\s*(?:[-–]\s*(\d+)\s*)?(Minuten?|Min\.?|Stunden?|Std\.?)/gi;
+    let m;
+    while((m=rx.exec(text))){
+      let a=Number(m[1]), b=Number(m[2]||m[1]);
+      const unit=(m[3]||'').toLowerCase();
+      if(unit.startsWith('st')){ a*=60; b*=60; }
+      min+=a; max+=b; found=true;
+    }
+  }
+  if(!found) return {label:'Keine Zeitangabe im Original',minutes:null};
+  const fmt=v=>v>=60?`${Math.floor(v/60)} Std.${v%60?` ${v%60} Min.`:''}`:`${v} Min.`;
+  return {label:min===max?`mind. ${fmt(min)} laut Rezeptschritten`:`mind. ${fmt(min)}–${fmt(max)} laut Rezeptschritten`,minutes:min};
+}
+
 function recipeSearchText(r){
   const src=dbRecipeSource(r);
   return [r?.title,r?.phase,r?.source_page,r?.notes,src?.gluten_free_adaptation,...(src?.original_ingredients||[])].filter(Boolean).join(' ').toLowerCase();
@@ -1633,7 +1653,7 @@ function renderRecipes(){
       return `<article class="item" onclick="recipeOpen='${r.id}';renderRecipes()" style="cursor:pointer">
         <div class="body">
           <div class="top"><h2>${esc(r.title)}</h2><span class="pill">${esc(r.phase||'Kochbuch')}</span></div>
-          <p class="desc">${recipePageLabel(r)} · ${recipeServingLabel(r)}</p>
+          <p class="desc">${recipePageLabel(r)} · ${recipeServingLabel(r)} · ${esc(recipeTimeInfo(r).label)}</p>
           <div class="meta">${complete?'Originalzutaten & Zubereitung vollständig':'⚠️ Rezeptdaten unvollständig'}</div>
           ${src.gluten_free_adaptation?`<div class="meta"><b>Glutenfrei:</b> ${esc(src.gluten_free_adaptation)}</div>`:''}
           <div class="meta">Rezept öffnen ›</div>
@@ -1667,6 +1687,8 @@ function renderRecipeDetail(key){
   <header><div><div class="eyebrow">${esc(db.phase||'KOCHBUCH')}</div><h1 style="font-size:38px">${esc(db.title)}</h1></div><div class="actions"><button class="icon" onclick="recipeOpen=null;renderRecipes()">←</button></div></header>
 
   <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>${recipePageLabel(db)} · ${recipeServingLabel(db)}</b><br><span class="muted">Original aus „Schlank mit Genuss – Das Bauchweg Kochbuch“</span></div></section>
+
+  <section class="notice" style="margin-top:14px"><div><b>⏱ Kochzeit</b><br><span class="muted">${esc(recipeTimeInfo(db).label)}. Angezeigt werden nur ausdrücklich im Original genannte Zeitangaben; Vorbereitungszeit wird nicht erfunden.</span></div></section>
 
   ${db.notes?`<section class="notice" style="margin-top:14px;background:#fff8e8;border-color:#ead39a"><div><b>Nährwerte / Originalhinweis</b><br><span class="muted">${esc(db.notes)}</span></div></section>`:''}
 
