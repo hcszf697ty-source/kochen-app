@@ -25,6 +25,17 @@ header{display:flex;justify-content:space-between;gap:16px;align-items:center;ma
 .bottom{position:fixed;left:10px;right:10px;bottom:10px;max-width:740px;margin:auto;background:#fffdf8eF;backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:24px;padding:12px 10px;display:grid;grid-template-columns:repeat(5,1fr);text-align:center;font-size:12px;box-shadow:0 12px 30px #0002}.bottom b{color:var(--green)}.hidden{display:none}
 
 .shell{padding-bottom:170px!important}
+
+/* Ruhige, gut lesbare Einzelansicht beim Kochen */
+.cook-card{margin-top:18px;min-height:320px;display:flex;align-items:center;padding:22px 20px!important;border-radius:28px!important}
+.cook-step-kicker{font-size:12px;font-weight:900;letter-spacing:.14em;color:#71806f;text-transform:uppercase}
+.cook-step-title{font-family:ui-rounded,"SF Pro Rounded","Avenir Next Rounded",system-ui,-apple-system,sans-serif;font-size:clamp(30px,7.5vw,42px);line-height:1.06;letter-spacing:-.025em;margin:8px 0 20px;font-weight:850;color:#1f3829}
+.cook-needs{margin:0 0 22px;padding:17px 18px;border-radius:20px;background:#fff8e8;border:1px solid #f0e3c4}
+.cook-needs-title{font-size:14px;font-weight:900;letter-spacing:.02em;margin-bottom:8px;color:#294f38}
+.cook-needs-list{font-size:18px;line-height:1.65;color:#334438}
+.cook-instruction{font-family:ui-rounded,"SF Pro Rounded","Avenir Next Rounded",system-ui,-apple-system,sans-serif;font-size:clamp(23px,5.7vw,30px)!important;line-height:1.42!important;letter-spacing:-.012em;color:#26392c!important;margin:0;font-weight:560}
+.cook-setting{margin-top:28px;padding:20px 16px;border-radius:21px;background:#edf3e9;text-align:center;font-family:ui-rounded,"SF Pro Rounded","Avenir Next Rounded",system-ui,-apple-system,sans-serif;font-size:clamp(21px,5vw,27px);line-height:1.2;font-weight:850;color:#1f412d}
+@media (max-width:430px){.cook-card{padding:20px 17px!important}.cook-needs-list{font-size:17px}}
 </style>
 </head>
 <body>
@@ -1574,13 +1585,13 @@ function renderCookMode(){
 
     <section class="notice" style="background:#edf3e9;border-color:#d7e2d0"><div><b>Du kochst ${cookServings??c.defaultYield??'eine Rezeptmenge'} Portionen</b><br><span class="muted">${c.defaultYield?`Originalmenge: ${c.defaultYield} Portionen · Faktor ${cookMultiplier.toLocaleString('de-DE',{maximumFractionDigits:2})} · alle Zutatenmengen unten sind bereits angepasst`:'Zündersuppe ohne feste Buch-Portionszahl.'}</span></div></section>
 
-    <section class="item" style="margin-top:18px;min-height:300px;display:flex;align-items:center">
+    <section class="item cook-card">
       <div class="body" style="width:100%">
-        <div class="eyebrow">SCHRITT ${cookStep+1}</div>
-        <h2 style="font-size:32px;margin:8px 0 18px">${s.title}</h2>
-        ${s.needs&&s.needs.length?`<div style="margin:0 0 18px;padding:16px;border-radius:18px;background:#fff8e8"><b>Jetzt brauchst du</b><div style="margin-top:8px;line-height:1.6">${s.needs.map(x=>`• ${cookNeedLine(x,c.title)}`).join('<br>')}</div></div>`:''}
-        <p class="desc" style="font-size:22px;line-height:1.45">${scaleInstructionText(s.text,cookMultiplier)}</p>
-        <div style="margin-top:26px;padding:20px;border-radius:20px;background:#edf3e9;text-align:center;font-size:24px;font-weight:800">${s.setting}</div>
+        <div class="cook-step-kicker">SCHRITT ${cookStep+1} VON ${c.steps.length}</div>
+        <h2 class="cook-step-title">${s.title}</h2>
+        ${s.needs&&s.needs.length?`<div class="cook-needs"><div class="cook-needs-title">Jetzt brauchst du</div><div class="cook-needs-list">${s.needs.map(x=>`• ${cookNeedLine(x,c.title)}`).join('<br>')}</div></div>`:''}
+        <p class="cook-instruction">${scaleInstructionText(s.text,cookMultiplier)}</p>
+        <div class="cook-setting">${s.setting}</div>
       </div>
     </section>
 
@@ -1629,7 +1640,20 @@ function recipeSearchText(r){
   return [r?.title,r?.phase,r?.source_page,r?.notes,src?.gluten_free_adaptation,...(src?.original_ingredients||[])].filter(Boolean).join(' ').toLowerCase();
 }
 let recipeListQuery='';
-function setRecipeListQuery(v){ recipeListQuery=(v||'').toLowerCase(); renderRecipes(); }
+function setRecipeListQuery(v){
+  recipeListQuery=(v||'').toLowerCase();
+  // Nicht die ganze Seite bei jedem Buchstaben neu rendern: auf iPhone/iPad
+  // würde dadurch das Input-Element ersetzt und die Bildschirmtastatur geschlossen.
+  const cards=[...document.querySelectorAll('[data-recipe-search]')];
+  let visible=0;
+  cards.forEach(card=>{
+    const show=!recipeListQuery || String(card.dataset.recipeSearch||'').includes(recipeListQuery);
+    card.style.display=show?'':'none';
+    if(show) visible++;
+  });
+  const empty=document.getElementById('recipeSearchEmpty');
+  if(empty) empty.style.display=visible?'none':'block';
+}
 
 
 
@@ -1702,10 +1726,7 @@ function openDeviceInfo(id){
 
 function renderRecipes(){
   if(recipeOpen) return renderRecipeDetail(recipeOpen);
-  const dbRecipes=(recipeRows||[]).filter(r=>{
-    if(!recipeListQuery) return true;
-    return recipeSearchText(r).includes(recipeListQuery);
-  });
+  const dbRecipes=(recipeRows||[]);
 
   document.getElementById('app').innerHTML=`<main class="shell">
   <header><div><div class="eyebrow">KOCHBUCH · ${recipeRows.length||0} REZEPTE</div><h1>Rezeptkarten</h1></div><div class="actions"><button class="icon" onclick="loadRows()">↻</button><button class="icon" onclick="logout()">⇥</button></div></header>
@@ -1721,7 +1742,7 @@ function renderRecipes(){
   <section class="list">
     ${dbRecipes.length?dbRecipes.map(r=>{
       const src=dbRecipeSource(r); const complete=(src.original_ingredients||[]).length>0&&(src.original_steps||[]).length>0;
-      return `<article class="item" onclick="recipeOpen='${r.id}';renderRecipes()" style="cursor:pointer">
+      return `<article class="item" data-recipe-search="${esc(recipeSearchText(r))}" onclick="recipeOpen='${r.id}';renderRecipes()" style="cursor:pointer;${recipeListQuery && !recipeSearchText(r).includes(recipeListQuery)?'display:none;':''}">
         <div class="body">
           <div class="top"><h2>${esc(r.title)}</h2><span class="pill">${esc(r.phase||'Kochbuch')}</span></div>
           <p class="desc">${recipePageLabel(r)} · ${recipeServingLabel(r)} · ${esc(recipeTimeInfo(r).label)}</p>
@@ -1730,7 +1751,8 @@ function renderRecipes(){
           <div class="meta">Rezept öffnen ›</div>
         </div>
       </article>`;
-    }).join(''):`<section class="notice"><div><b>Keine Treffer</b><br><span class="muted">Ändere den Suchbegriff.</span></div></section>`}
+    }).join(''):''}
+    <section id="recipeSearchEmpty" class="notice" style="${dbRecipes.some(r=>!recipeListQuery||recipeSearchText(r).includes(recipeListQuery))?'display:none;':''}"><div><b>Keine Treffer</b><br><span class="muted">Ändere den Suchbegriff.</span></div></section>
   </section>
 
   <nav class="bottom"><span onclick="activeTab='today';renderApp()">Heute</span><span onclick="activeTab='plan';renderApp()">Plan</span><b onclick="activeTab='recipes';recipeOpen=null;renderApp()">Rezepte</b><span onclick="activeTab='inventory';loadInventory()">Vorrat</span><span onclick="activeTab='shopping';renderApp()">Einkauf</span></nav></main>`;
