@@ -599,14 +599,62 @@ function plannerMealKind(r){
   return 'main';
 }
 function plannerInventoryCoverage(r){
-  const ings=(r.recipe_ingredients||[]).filter(x=>x?.food_id && x?.quantity!=null);
-  if(!ings.length) return {ratio:0,known:0,total:0};
-  let known=0;
+  const ings=(r.recipe_ingredients||[]).filter(x=>x?.food_id && x?.quantity!=null && !x.optional);
+  if(!ings.length) return {ratio:0,known:0,full:0,partial:0,total:0,missing:0};
+  let covered=0, full=0, partial=0;
   ings.forEach(i=>{
-    const has=inventoryRows.some(v=>v.food_id===i.food_id && Number(v.quantity||0)>0);
-    if(has) known++;
+    const need=Number(i.quantity||0);
+    const unit=unitSimple(i.unit||'');
+    const sameUnit=(inventoryRows||[]).filter(v=>v.food_id===i.food_id && Number(v.quantity||0)>0 && unitSimple(v.unit||'')===unit);
+    const exactQty=sameUnit.reduce((sum,v)=>sum+Number(v.quantity||0),0);
+    let frac=0;
+    if(need>0 && exactQty>0) frac=Math.min(1,exactQty/need);
+    else if((inventoryRows||[]).some(v=>v.food_id===i.food_id && Number(v.quantity||0)>0)) frac=.25; // vorhanden, aber Einheit nicht sicher vergleichbar
+    if(frac>=.999) full++;
+    else if(frac>0) partial++;
+    covered+=frac;
   });
-  return {ratio:known/ings.length,known,total:ings.length};
+  const ratio=covered/ings.length;
+  return {ratio,known:full+partial,full,partial,total:ings.length,missing:Math.max(0,ings.length-full-partial)};
+}
+function plannerSupplyCoverage(r){
+  const ings=(r.recipe_ingredients||[]).filter(x=>x?.food_id && x?.quantity!=null && !x.optional);
+  if(!ings.length) return {ratio:0,total:0,inventory:0,purchased:0,delivery:0,missing:0};
+  let covered=0, inventory=0, purchased=0, delivery=0;
+  ings.forEach(i=>{
+    const need=Number(i.quantity||0), unit=unitSimple(i.unit||'');
+    if(!(need>0)) return;
+    const invQty=(inventoryRows||[]).filter(v=>v.food_id===i.food_id && Number(v.quantity||0)>0 && unitSimple(v.unit||'')===unit).reduce((sum,v)=>sum+Number(v.quantity||0),0);
+    const purchasedQty=(rows||[]).filter(v=>v.food_id===i.food_id && v.checked && unitSimple(v.required_unit||v.package_unit||'')===unit).reduce((sum,v)=>sum+Number(v.required_quantity||v.quantity_to_buy||0),0);
+    const deliveryQty=(bioboxItems||[]).filter(v=>v.food_id===i.food_id && Number(v.quantity||0)>0 && unitSimple(v.unit||'')===unit).reduce((sum,v)=>sum+Number(v.quantity||0),0);
+    const invFrac=Math.min(1,invQty/need);
+    const left1=Math.max(0,1-invFrac);
+    const buyFrac=Math.min(left1,purchasedQty/need);
+    const left2=Math.max(0,left1-buyFrac);
+    const delFrac=Math.min(left2,deliveryQty/need);
+    inventory+=invFrac; purchased+=buyFrac; delivery+=delFrac; covered+=invFrac+buyFrac+delFrac;
+    if(invFrac+buyFrac+delFrac===0){
+      const fuzzyInv=(inventoryRows||[]).some(v=>v.food_id===i.food_id && Number(v.quantity||0)>0);
+      const fuzzyBuy=(rows||[]).some(v=>v.food_id===i.food_id && v.checked);
+      const fuzzyDel=(bioboxItems||[]).some(v=>v.food_id===i.food_id && Number(v.quantity||0)>0);
+      if(fuzzyInv||fuzzyBuy||fuzzyDel){covered+=.2;if(fuzzyInv)inventory+=.2;else if(fuzzyBuy)purchased+=.2;else delivery+=.2;}
+    }
+  });
+  const total=ings.length;
+  return {ratio:Math.min(1,covered/total),total,inventory:inventory/total,purchased:purchased/total,delivery:delivery/total,missing:Math.max(0,1-covered/total)};
+}
+function plannerInventoryLabel(r){
+  const s=plannerSupplyCoverage(r);
+  if(!s.total) return 'Vorratsabgleich nicht möglich';
+  const pct=Math.round(s.ratio*100), bits=[];
+  if(s.inventory>.03) bits.push(`${Math.round(s.inventory*100)}% Vorrat`);
+  if(s.purchased>.03) bits.push(`${Math.round(s.purchased*100)}% schon gekauft`);
+  if(s.delivery>.03) bits.push(`${Math.round(s.delivery*100)}% Biokiste`);
+  const detail=bits.length?` · ${bits.join(' · ')}`:'';
+  if(pct>=85) return `Bedarf ca. ${pct}% gedeckt${detail} · sehr passend`;
+  if(pct>=60) return `Bedarf ca. ${pct}% gedeckt${detail} · gut passend`;
+  if(pct>=30) return `Bedarf ca. ${pct}% gedeckt${detail} · teilweise passend`;
+  return `Bedarf ca. ${pct}% gedeckt${detail}`;
 }
 const plannerTargets={
   BREAKFAST:{kcalMin:350,kcalMax:500,proteinMin:20,proteinIdeal:28},
@@ -635,7 +683,13 @@ function plannerScore(r,type,used=new Set(),targetOverride=null){
   if(n.protein<t.proteinMin) score-=(t.proteinMin-n.protein)*3.4;
   if(used.has(r.title)) score-=90;
   if(type==='DINNER' && Number(r.original_servings||0)>=4) score+=14;
-  const inv=plannerInventoryCoverage(r); score+=inv.ratio*18;
+  const supply=plannerSupplyCoverage(r);
+  // Erst verbrauchen, was bereits da bzw. bereits bezahlt/bestellt ist.
+  // Vorrat wiegt am stärksten, danach Freitagseinkauf/abgehakte Käufe, dann kommende Biokiste.
+  score+=supply.ratio*58 + supply.inventory*26 + supply.purchased*18 + supply.delivery*14;
+  if(supply.ratio>=.80) score+=22;
+  else if(supply.ratio>=.60) score+=12;
+  else if(supply.ratio<.20) score-=10;
   return score;
 }
 function bestPlannerRecipes(type,used=new Set(),limit=8,targetOverride=null){
@@ -789,7 +843,7 @@ function smartWeekDraftHtml(){
     const status=!n.complete?'unvollständig':dayOk?'✓ Zielkorridor':'≈ noch anpassbar';
     return `<article class="item"><div class="body"><div class="top"><h2>${esc(deDayLabel(d.date))}</h2><span class="pill">${esc(status)}</span></div>
       <div class="meta" style="margin-bottom:8px">Du bei je 1 Buchportion: ${Math.round(n.kcal)} kcal · ${Math.round(n.protein)} g Protein${n.complete?'':' · nicht alle Werte vollständig'}</div>
-      ${d.meals.map((m,mi)=>{const r=m.recipe,nn=r?nutritionForTitle(r.title):null,ms=mealTargetStatus(m.type,nn),t=plannerTargets[m.type];return `<div style="padding:10px 0;border-top:1px solid #e7e1d5"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${mealLabelFromType(m.type,d.date)}</b><br>${r?recipeLink(r.title,r.id):'<span class="muted">Meal-Prep vom Vorabend noch nicht vorhanden</span>'}</div><span class="pill" style="white-space:nowrap">${esc(m.mealPrepMissing?'Meal-Prep fehlt':ms.label)}</span></div><div class="meta">${plannerMealMeta(d,m,di)}<br>${nn?`Ziel: ${t.kcalMin}–${t.kcalMax} kcal · ≥${t.proteinMin} g Protein`:''}</div>${!m.leftover&&!m.mealPrepMissing?`<button class="secondary" style="margin-top:7px;padding:7px 10px" onclick="cycleSmartSuggestion(${di},${mi})">Nächsten Vorschlag</button>`:''}</div>`}).join('')}
+      ${d.meals.map((m,mi)=>{const r=m.recipe,nn=r?nutritionForTitle(r.title):null,ms=mealTargetStatus(m.type,nn),t=plannerTargets[m.type];return `<div style="padding:10px 0;border-top:1px solid #e7e1d5"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${mealLabelFromType(m.type,d.date)}</b><br>${r?recipeLink(r.title,r.id):'<span class="muted">Meal-Prep vom Vorabend noch nicht vorhanden</span>'}</div><span class="pill" style="white-space:nowrap">${esc(m.mealPrepMissing?'Meal-Prep fehlt':ms.label)}</span></div><div class="meta">${plannerMealMeta(d,m,di)}${r?`<br>${esc(plannerInventoryLabel(r))}`:''}<br>${nn?`Ziel: ${t.kcalMin}–${t.kcalMax} kcal · ≥${t.proteinMin} g Protein`:''}</div>${!m.leftover&&!m.mealPrepMissing?`<button class="secondary" style="margin-top:7px;padding:7px 10px" onclick="cycleSmartSuggestion(${di},${mi})">Nächsten Vorschlag</button>`:''}</div>`}).join('')}
     </div></article>`;
   }).join('');
 }
@@ -816,7 +870,7 @@ function openSmartWeekPlanner(){
   const start=nextMondayIso(); generateSmartWeekDraft(start);
   const overlay=document.createElement('div');overlay.id='smartWeekPlanner';overlay.style='position:fixed;inset:0;background:rgba(20,30,24,.46);z-index:10000;display:flex;align-items:flex-end;justify-content:center;padding:10px';
   overlay.innerHTML=`<section style="width:min(720px,100%);background:#fffdf7;border-radius:26px 26px 18px 18px;padding:20px;max-height:94vh;overflow:auto"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><div class="eyebrow">INTELLIGENTE WOCHENPLANUNG</div><h2 style="margin:4px 0 0">Woche konkret planen</h2></div><button class="icon" onclick="document.getElementById('smartWeekPlanner')?.remove()">×</button></div>
-    <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Maximal einmal am Tag kochen</b><br><span class="muted">Mittagessen wird konsequent aus dem Abendessen des Vortags eingeplant. Die Abendportionen werden automatisch erhöht. Das Mittagessen wird beim Einkauf nicht ein zweites Mal als neues Rezept berechnet. Zusätzlich: kcal/Protein · Abnehmphase · glutenfrei · Vorrat · Ausschlüsse · möglichst wenig Wiederholungen.</span></div></div>
+    <div class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>Maximal einmal am Tag kochen</b><br><span class="muted">Mittagessen wird konsequent aus dem Abendessen des Vortags eingeplant. Die Abendportionen werden automatisch erhöht. Das Mittagessen wird beim Einkauf nicht ein zweites Mal als neues Rezept berechnet. Zusätzlich: kcal/Protein · Abnehmphase · glutenfrei · <b>Vorrat + bereits gekaufter Freitagseinkauf + kommende Biokiste werden priorisiert</b> · Ausschlüsse · möglichst wenig Wiederholungen. Die Planung versucht zuerst das sinnvoll zu verbrauchen, was schon da ist oder bereits kommt; nur der Rest landet im nächsten Einkauf.</span></div></div>
     <label style="display:block;margin-top:14px">Wochenstart <input id="smartWeekStart" type="date" value="${start}" style="width:100%" onchange="generateSmartWeekDraft(this.value);refreshSmartWeekOverlay()"></label>
     <div id="smartWeekResults" class="list" style="margin-top:14px">${smartWeekDraftHtml()}</div>
     <div id="smartVegPrepResults" style="margin-top:14px">${vegetablePrepPlanHtml()}</div>
