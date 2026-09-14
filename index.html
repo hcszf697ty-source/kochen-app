@@ -2238,6 +2238,49 @@ async function finishOriginalCook(){
   if(unq.length) notes.push(`${unq.length} Zutaten ohne feste Mengenangabe wurden protokolliert, aber nicht mit erfundener Menge abgezogen`);
   alert(`Kochrunde gespeichert ✓\n\nVorrat und übrige Portionen wurden aktualisiert.${notes.length?'\n\n'+notes.join('. ')+'.':''}`);
 }
+function cookIngredientTokens(text){
+  const stop=new Set(['oder','und','mit','ohne','etwas','frisch','frische','frischen','gehackt','gerieben','geschnitten','klein','kleine','große','gross','nach','wahl','glutenfrei','glutenfreie','glutenfreies','zum','zur','dem','den','der','die','das','ein','eine','einer','einem','einen']);
+  return String(text||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9]+/g,' ').split(/\s+/).filter(x=>x.length>=4&&!stop.has(x));
+}
+function scaledPreparationNote(row,mult){
+  const note=String(row?.preparation_note||row?.foods?.name||'').trim();
+  const q=Number(row?.quantity);
+  if(!note || !Number.isFinite(q) || q<=0 || !Number.isFinite(Number(mult)) || Number(mult)===1) return note;
+  const scaled=q*Number(mult);
+  const fmt=scaled.toLocaleString('de-DE',{maximumFractionDigits:2});
+  // Nur die Rezept-Gesamtmenge ersetzen. Weitere Zahlen (z. B. „à 150 g“ oder Fettstufen) bleiben unangetastet.
+  const patterns=[
+    /½/, /¼/, /¾/,
+    /\b\d+(?:[.,]\d+)?\b/
+  ];
+  for(const rx of patterns){
+    const m=note.match(rx); if(!m) continue;
+    let n;
+    if(m[0]==='½') n=.5; else if(m[0]==='¼') n=.25; else if(m[0]==='¾') n=.75; else n=Number(m[0].replace(',','.'));
+    if(Number.isFinite(n) && Math.abs(n-q)<=Math.max(.01,Math.abs(q)*.02)) return note.replace(rx,fmt);
+  }
+  return note;
+}
+function ingredientsForOriginalCookStep(db,step){
+  const text=String(step?.instruction||step||'');
+  const stepTokens=new Set(cookIngredientTokens(text));
+  const rows=[...(db?.recipe_ingredients||[])].sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+  const matched=[];
+  for(const row of rows){
+    const label=[row?.foods?.name,row?.preparation_note].filter(Boolean).join(' ');
+    const toks=cookIngredientTokens(label);
+    if(toks.some(t=>stepTokens.has(t) || [...stepTokens].some(s=>s.length>=5&&(s.includes(t)||t.includes(s))))) matched.push(row);
+  }
+  return matched;
+}
+function originalCookNeedsHtml(db,step){
+  const rows=ingredientsForOriginalCookStep(db,step);
+  if(!rows.length) return '';
+  const mult=Number(originalCookMultiplier||1);
+  return `<div class="cook-needs"><div class="cook-needs-title">Jetzt brauchst du</div><div class="cook-needs-list">${rows.map(r=>`• ${esc(scaledPreparationNote(r,mult))}`).join('<br>')}</div></div>`;
+}
+
 function renderOriginalCookMode(){
   const db=recipeRows.find(x=>x.id===originalCookRecipeId);
   if(!db){ originalCookRecipeId=null; return renderRecipes(); }
@@ -2256,6 +2299,7 @@ function renderOriginalCookMode(){
     <section class="item cook-card"><div class="body" style="width:100%">
       <div class="cook-step-kicker">SCHRITT ${originalCookStep+1} VON ${steps.length}</div>
       <h2 class="cook-step-title">${esc(s.title||`Schritt ${originalCookStep+1}`)}</h2>
+      ${originalCookNeedsHtml(db,s)}
       <p class="cook-instruction">${esc(text)}</p>
     </div></section>
     <section class="notice" style="margin-top:14px;background:#edf3e9;border-color:#d7e2d0"><div><b>${originalCookServings?`Du kochst ${Number(originalCookServings).toLocaleString('de-DE')} Portionen`:'Du kochst 1 Rezeptmenge'}</b><br><span class="muted">${Number(db.original_servings||0)?`Original: ${Number(db.original_servings).toLocaleString('de-DE')} Portionen · Faktor ${Number(originalCookMultiplier||1).toLocaleString('de-DE',{maximumFractionDigits:2})}. `:''}Original aus dem Kochbuch · ${recipePageLabel(db)}.</span></div></section>
@@ -2985,7 +3029,7 @@ async function loadRows(doRefresh=true){
   if(invData) inventoryRows=invData;
 
   const {data:recipeDataRows,error:recipeLoadError}=await sb.from('recipes')
-    .select('id,title,phase,source_page,original_servings,notes,recipe_original_sources(original_ingredients,original_steps,gluten_free_adaptation,source_capture),recipe_ingredients(food_id,quantity,unit,optional,foods(name))')
+    .select('id,title,phase,source_page,original_servings,notes,recipe_original_sources(original_ingredients,original_steps,gluten_free_adaptation,source_capture),recipe_ingredients(food_id,quantity,unit,optional,preparation_note,sort_order,foods(name))')
     .eq('household_id',householdId)
     .order('source_page',{ascending:true});
   recipeRows=recipeLoadError?[]:(recipeDataRows||[]);
