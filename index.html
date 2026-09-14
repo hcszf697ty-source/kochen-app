@@ -775,70 +775,181 @@ function prepRuleForFood(name){
   return null;
 }
 function isFreshProteinFood(name){const n=String(name||'').toLowerCase();return freshProteinKeys.some(k=>n.includes(k))||/(^|\s)(ei|eier)(\s|$)/.test(n);}
-function ingredientDisplayMeasure(x,mult){
-  // Die importierten Strukturspalten enthalten bei einigen Alt-Datensätzen falsche Einheiten
-  // (z.B. 250 "Stück" statt 250 g). Die verifizierte Original-Zeile ist hier maßgeblich.
-  const note=String(x.preparation_note||'').trim();
-  const m=note.match(/^(\d+(?:[.,]\d+)?|[½¼¾])\s*(g|kg|ml|l|EL|TL|Stück|Stck|Zehe|Zehen|Bund|Bd\.)\b/i);
-  if(m){
-    const frac={'½':.5,'¼':.25,'¾':.75};
-    const q=frac[m[1]]??Number(m[1].replace(',','.'));
-    let u=m[2].replace(/^Stck$/i,'Stück').replace(/^Bd\.$/i,'Bund');
-    return {quantity:q*mult,unit:u};
-  }
-  return {quantity:x.quantity==null?null:Number(x.quantity)*mult,unit:x.unit||''};
+function parsePrepAmountFromNote(note,mult=1){
+  // Maßgeblich ist die verifizierte Original-Zeile. Unterstützt auch Vorspänne ("Für die Soße:")
+  // und Brüche wie 1/2 oder 1 1/2. Bei Bereichen wird bewusst kein Einzelwert erfunden.
+  const text=String(note||'').trim();
+  if(!text) return null;
+  const range=text.match(/(?:^|:\s*)(\d+(?:[.,]\d+)?)\s*[–-]\s*(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l|EL|TL|Stück|Stck|Zehe|Zehen|Bund|Bd\.)\b/i);
+  if(range){const a=Number(range[1].replace(',','.'))*mult,b=Number(range[2].replace(',','.'))*mult;return {quantity:null,unit:range[3],display:`${Math.round(a*10)/10}–${Math.round(b*10)/10} ${range[3]}`,range:true};}
+  const m=text.match(/(?:^|:\s*)(?:(\d+)\s+)?(\d+\/\d+|\d+(?:[.,]\d+)?|[½¼¾])\s*(g|kg|ml|l|EL|TL|Stück|Stck|Zehe|Zehen|Bund|Bd\.)?\b/i);
+  if(!m) return null;
+  const frac={'½':.5,'¼':.25,'¾':.75};
+  let q=0;
+  if(m[1]) q+=Number(m[1]);
+  const token=m[2];
+  if(frac[token]!=null) q+=frac[token];
+  else if(token.includes('/')){const [a,b]=token.split('/').map(Number); if(!b)return null; q+=a/b;}
+  else q+=Number(token.replace(',','.'));
+  let u=(m[3]||'Stück').replace(/^Stck$/i,'Stück').replace(/^Bd\.$/i,'Bund');
+  return {quantity:q*mult,unit:u,display:null,range:false};
 }
-function scaledIngredientRows(recipe,date){
-  const mult=plannerMultiplier(recipe,date,'DINNER');
+function ingredientDisplayMeasure(x,mult){
+  // Strukturspalten enthalten in einigen Alt-Datensätzen falsche Einheiten.
+  // Deshalb hat preparation_note Vorrang; nur wenn dort keine Menge lesbar ist,
+  // fällt die App auf quantity/unit zurück.
+  const parsed=parsePrepAmountFromNote(x.preparation_note,mult);
+  if(parsed) return parsed;
+  const q=x.quantity==null?null:Number(x.quantity)*mult;
+  const u=String(x.unit||'');
+  // Offensichtlich verdächtige Alt-Datensätze nicht als exakte Prep-Menge ausgeben.
+  if(q!=null && ((u.toLowerCase()==='kg' && q>10) || (/stück|stck/i.test(u) && q>40))) return {quantity:null,unit:'',display:null,range:false};
+  return {quantity:q,unit:u,display:null,range:false};
+}
+function recipeStepTexts(recipe){
+  const src=Array.isArray(recipe?.recipe_original_sources)?recipe.recipe_original_sources[0]:recipe?.recipe_original_sources;
+  return (src?.original_steps||[]).map(x=>String(x?.instruction||x||'')).filter(Boolean);
+}
+function effectivePrepIngredientName(ing){
+  // Bei einigen alten Zuordnungen stimmt foods.name nicht mit der verifizierten Original-Zeile überein
+  // (z.B. foods.name="Thunfisch...", preparation_note="1 EL Öl" oder foods.name="Paprikaschote", note="1 Ei").
+  // Für Meal-Prep-Klassifikation hat deshalb der Originaltext Vorrang.
+  const note=String(ing?.preparation_note||'').toLowerCase();
+  const tests=[
+    [/karott|möhre|moehre/,'Karotten'],[/rote\s+zwiebel/,'Rote Zwiebeln'],[/zwiebel|schalotte/,'Zwiebeln'],
+    [/champignon|pilz/,'Champignons'],[/paprika/,'Paprika'],[/brokkoli/,'Brokkoli'],[/blumenkohl/,'Blumenkohl'],
+    [/sellerie/,'Knollensellerie'],[/zucchini/,'Zucchini'],[/aubergine/,'Aubergine'],[/gurke/,'Gurke'],[/tomat/,'Tomaten'],
+    [/weißkohl|weisskohl/,'Weißkohl'],[/tofu/,'Tofu'],[/hähnchen|haehnchen/,'Hähnchen'],[/pute/,'Pute'],
+    [/rinderhack|rindfleisch|hackfleisch/,'Rind'],[/schwein/,'Schwein'],[/lachs/,'Lachs'],[/fischfilet/,'Fisch'],[/feta/,'Feta'],
+    [/(?:^|\s)ei(?:er)?(?:\s|$)/,'Ei'],[/\böl\b|\boel\b/,'Öl']
+  ];
+  for(const [rx,label] of tests) if(rx.test(note)) return label;
+  return String(ing?.name||'');
+}
+function prepInstructionForIngredient(recipe,ing){
+  const name=String(ing.name||'').toLowerCase();
+  const note=String(ing.preparation_note||'');
+  const roots=[];
+  if(/karott|möhre|moehre/.test(name)) roots.push('karott','möhre','möhren');
+  else if(/zwiebel|schalotte/.test(name)) roots.push('zwiebel','schalotte');
+  else if(/champignon|pilz/.test(name)) roots.push('champignon','pilz');
+  else if(/paprika/.test(name)) roots.push('paprika');
+  else if(/brokkoli/.test(name)) roots.push('brokkoli');
+  else if(/blumenkohl/.test(name)) roots.push('blumenkohl');
+  else if(/sellerie/.test(name)) roots.push('sellerie');
+  else if(/zucchini/.test(name)) roots.push('zucchini');
+  else if(/aubergine/.test(name)) roots.push('aubergine');
+  else if(/gurke/.test(name)) roots.push('gurke');
+  else if(/tomat/.test(name)) roots.push('tomat');
+  else if(/kohl/.test(name)) roots.push('kohl');
+
+  const candidates=[note,...recipeStepTexts(recipe).filter(t=>roots.some(r=>t.toLowerCase().includes(r)))];
+  const joined=candidates.join(' · ').toLowerCase();
+  const actions=[];
+  if(/schäl/.test(joined)) actions.push('schälen');
+  if(/röschen/.test(joined)) actions.push('in Röschen teilen');
+  if(/fein.{0,12}würfel|würfel.{0,12}fein/.test(joined)) actions.push('fein würfeln');
+  else if(/würfel/.test(joined)) actions.push('würfeln');
+  if(/fein.{0,12}streifen|streifen.{0,12}fein/.test(joined)) actions.push('in feine Streifen schneiden');
+  else if(/streifen/.test(joined)) actions.push('in Streifen schneiden');
+  if(/scheib/.test(joined)) actions.push('in Scheiben schneiden');
+  if(/raspel/.test(joined)) actions.push('raspeln');
+  else if(/reib/.test(joined)) actions.push('reiben');
+  if(/hack/.test(joined)) actions.push('hacken');
+  if(/viertel/.test(joined)) actions.push('vierteln');
+  else if(/halbier/.test(joined)) actions.push('halbieren');
+  if(/putz/.test(joined)) actions.unshift('putzen');
+  const unique=[...new Set(actions)];
+  if(unique.length) return {text:unique.join(' · '),source:'recipe'};
+  return {text:'nur waschen/putzen; Schnittform am Kochtag nach Rezept',source:'safe'};
+}
+function scaledIngredientRows(recipe,date,explicitMultiplier=null){
+  const mult=explicitMultiplier!=null?Number(explicitMultiplier):plannerMultiplier(recipe,date,'DINNER');
   return (recipe?.recipe_ingredients||[]).filter(x=>!x.optional).map(x=>{
     const measure=ingredientDisplayMeasure(x,mult);
-    return {name:x.foods?.name||'', quantity:measure.quantity, unit:measure.unit};
+    return {name:x.foods?.name||'', quantity:measure.quantity, unit:measure.unit, display:measure.display, preparation_note:x.preparation_note||'', prep:prepInstructionForIngredient(recipe,{name:x.foods?.name||'',preparation_note:x.preparation_note||''})};
   });
 }
-function formatPrepQty(q,u){
+function formatPrepQty(q,u,display){
+  if(display) return display;
   if(q==null||!isFinite(q)) return '';
   const rounded=Math.abs(q-Math.round(q))<.01?Math.round(q):Math.round(q*10)/10;
   return `${rounded}${u?' '+u:''}`;
 }
+function prepCanonical(name){
+  const n=String(name||'').toLowerCase();
+  if(/karott|möhre|moehre/.test(n)) return 'Karotten/Möhren';
+  if(/rote zwiebel/.test(n)) return 'Rote Zwiebeln';
+  if(/zwiebel|schalotte/.test(n)) return 'Zwiebeln';
+  if(/champignon|pilz/.test(n)) return 'Champignons';
+  if(/paprika/.test(n)) return 'Paprika';
+  if(/brokkoli/.test(n)) return 'Brokkoli';
+  if(/blumenkohl/.test(n)) return 'Blumenkohl';
+  if(/sellerie/.test(n)) return 'Knollensellerie';
+  if(/zucchini/.test(n)) return 'Zucchini';
+  if(/aubergine/.test(n)) return 'Aubergine';
+  if(/gurke/.test(n)) return 'Gurke';
+  if(/tomat/.test(n)) return 'Tomaten';
+  if(/weißkohl|weisskohl/.test(n)) return 'Weißkohl';
+  return String(name||'');
+}
+function currentPlanDraftForVegPrep(){
+  const byDate=new Map();
+  (mealPlanRows||[]).filter(x=>x.meal_type==='DINNER'&&x.recipe_id&&x.meal_date>=todayIsoLocal()).forEach(x=>{
+    const recipe=recipeRows.find(r=>r.id===x.recipe_id); if(!recipe)return;
+    byDate.set(x.meal_date,{date:x.meal_date,meals:[{type:'DINNER',recipe,multiplier:Number(x.batch_multiplier||1)}]});
+  });
+  const days=[...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date));
+  return days.length?{start:days[0].date,days}:null;
+}
 function buildVegetablePrepPlan(draft=smartWeekDraft){
   if(!draft?.days?.length)return [];
   const blocks=[];
-  // Zwei Blöcke pro Woche: Start–Tag 3 und Tag 4–7. So bleibt die Qualität besser als bei 7-Tage-Prep.
   const chunks=[draft.days.slice(0,3),draft.days.slice(3,7)].filter(x=>x.length);
   chunks.forEach((days,idx)=>{
     const stable=new Map(), fresh=new Map(), proteins=new Set(), uses=[];
     days.forEach(day=>{
-      const dinner=day.meals.find(m=>m.type==='DINNER')?.recipe;
+      const dinnerMeal=day.meals.find(m=>m.type==='DINNER');
+      const dinner=dinnerMeal?.recipe;
       if(!dinner)return;
       const dayLabel=deDayLabel(day.date);
       const vegForDay=[];
-      scaledIngredientRows(dinner,day.date).forEach(ing=>{
-        if(isFreshProteinFood(ing.name)){proteins.add(`${dayLabel}: ${ing.name}`);return;}
-        const rule=prepRuleForFood(ing.name); if(!rule)return;
+      scaledIngredientRows(dinner,day.date,dinnerMeal?.multiplier).forEach(ing=>{
+        const effectiveName=effectivePrepIngredientName(ing);
+        if(isFreshProteinFood(effectiveName)){proteins.add(`${dayLabel}: ${effectiveName}`);return;}
+        const rule=prepRuleForFood(effectiveName); if(!rule)return;
         const target=rule.life>=2?stable:fresh;
-        const key=`${ing.name}|${ing.unit}`;
-        const cur=target.get(key)||{name:ing.name,unit:ing.unit,quantity:0,hasQty:true,days:new Set(),label:rule.label};
-        if(ing.quantity==null) cur.hasQty=false; else cur.quantity+=ing.quantity;
-        cur.days.add(dayLabel); target.set(key,cur); vegForDay.push(ing.name);
+        const canonical=prepCanonical(effectiveName);
+        const key=`${canonical}|${ing.unit}|${ing.prep.text}`;
+        const cur=target.get(key)||{name:canonical,unit:ing.unit,quantity:0,displayParts:[],hasQty:true,days:new Set(),label:rule.label,prep:ing.prep};
+        if(ing.display) cur.displayParts.push(ing.display);
+        else if(ing.quantity==null) cur.hasQty=false;
+        else cur.quantity+=ing.quantity;
+        cur.days.add(dayLabel); target.set(key,cur); vegForDay.push(canonical);
       });
       if(vegForDay.length) uses.push({day:dayLabel,recipe:dinner.title,veg:[...new Set(vegForDay)]});
     });
     if(!stable.size&&!fresh.size&&!proteins.size)return;
-    const prepDate=idx===0?addDaysIso(days[0].date,-1):addDaysIso(days[0].date,-1);
+    const prepDate=addDaysIso(days[0].date,-1);
     blocks.push({prepDate,range:`${deDayLabel(days[0].date)} – ${deDayLabel(days.at(-1).date)}`,stable:[...stable.values()],fresh:[...fresh.values()],proteins:[...proteins],uses});
   });
   return blocks;
 }
+function prepAmountLabel(x){
+  if(x.displayParts?.length) return x.displayParts.join(' + ');
+  return x.hasQty?formatPrepQty(x.quantity,x.unit):'';
+}
 function vegetablePrepPlanHtml(draft=smartWeekDraft){
   const blocks=buildVegetablePrepPlan(draft);
   if(!blocks.length)return `<section class="notice"><div><b>Gemüse-Meal-Prep</b><br><span class="muted">Für diese Auswahl lässt sich noch keine sinnvolle gemeinsame Gemüse-Basis ableiten.</span></div></section>`;
-  return `<section class="list"><article class="item"><div class="body"><div class="eyebrow">SMARTES GEMÜSE-MEAL-PREP</div><h2 style="margin:4px 0 6px">Einmal schnippeln, mehrere Abende nutzen</h2><div class="meta">Nur robuste Gemüse werden vorab gebündelt. Protein, Salat und empfindliche Gemüse bleiben frisch.</div>${blocks.map(b=>`<div style="margin-top:16px;padding-top:14px;border-top:1px solid #e7e1d5"><div class="top"><h3 style="margin:0">${esc(deDayLabel(b.prepDate))} vorbereiten</h3><span class="pill">für ${esc(b.range)}</span></div>${b.stable.length?`<div style="margin-top:10px"><b>Jetzt vorbereiten</b>${b.stable.map(x=>`<div class="meta">• ${x.hasQty?esc(formatPrepQty(x.quantity,x.unit))+' ':''}${esc(x.name)} <span class="muted">→ ${esc([...x.days].join(', '))}</span></div>`).join('')}</div>`:''}${b.fresh.length?`<div style="margin-top:10px"><b>Später frisch machen</b>${b.fresh.map(x=>`<div class="meta">• ${esc(x.name)} <span class="muted">(${esc(x.label)})</span></div>`).join('')}</div>`:''}${b.proteins.length?`<div style="margin-top:10px"><b>Protein frisch dazu</b>${b.proteins.map(x=>`<div class="meta">• ${esc(x)}</div>`).join('')}</div>`:''}${b.uses.length?`<div style="margin-top:10px"><b>Wird verwendet für</b>${b.uses.map(u=>`<div class="meta">• ${esc(u.day)}: ${esc(u.recipe)} · ${esc(u.veg.join(', '))}</div>`).join('')}</div>`:''}</div>`).join('')}</div></article></section>`;
+  return `<section class="list"><article class="item"><div class="body"><div class="eyebrow">SMARTES GEMÜSE-MEAL-PREP</div><h2 style="margin:4px 0 6px">Vorbereiten – aber nur so weit wie sinnvoll</h2><div class="meta">Mengen stammen aus den Originalrezepten und werden mit der tatsächlich geplanten Rezeptmenge skaliert. Wenn die Quelle keine sichere Schnittform nennt, sagt die App das ausdrücklich.</div>${blocks.map(b=>`<div style="margin-top:16px;padding-top:14px;border-top:1px solid #e7e1d5"><div class="top"><h3 style="margin:0">${esc(deDayLabel(b.prepDate))} vorbereiten</h3><span class="pill">für ${esc(b.range)}</span></div>${b.stable.length?`<div style="margin-top:10px"><b>Jetzt vorbereiten</b>${b.stable.map(x=>`<div style="margin-top:8px"><div class="meta"><b>${esc(prepAmountLabel(x))}${prepAmountLabel(x)?' ':''}${esc(x.name)}</b> <span class="muted">→ ${esc([...x.days].join(', '))}</span></div><div class="meta" style="padding-left:14px">↳ ${esc(x.prep.text)}${x.prep.source==='safe'?` <span class="muted">(keine genauere Schnittform im Rezept gefunden)</span>`:''}</div></div>`).join('')}</div>`:''}${b.fresh.length?`<div style="margin-top:12px"><b>Am Kochtag frisch vorbereiten</b>${b.fresh.map(x=>`<div style="margin-top:8px"><div class="meta"><b>${esc(prepAmountLabel(x))}${prepAmountLabel(x)?' ':''}${esc(x.name)}</b> <span class="muted">→ ${esc([...x.days].join(', '))}</span></div><div class="meta" style="padding-left:14px">↳ ${esc(x.prep.text)}</div></div>`).join('')}</div>`:''}${b.proteins.length?`<div style="margin-top:12px"><b>Protein frisch dazu</b>${b.proteins.map(x=>`<div class="meta">• ${esc(x)}</div>`).join('')}</div>`:''}${b.uses.length?`<div style="margin-top:12px"><b>Zuordnung zu den Gerichten</b>${b.uses.map(u=>`<div class="meta">• ${esc(u.day)}: ${esc(u.recipe)} · ${esc(u.veg.join(', '))}</div>`).join('')}</div>`:''}</div>`).join('')}</div></article></section>`;
 }
 function savedVegetablePrepHtml(){
+  // Nicht mehr das alte HTML aus localStorage anzeigen: das konnte nach Planänderungen veraltet sein.
+  // Der Plan wird bei jedem Öffnen aus dem aktuell in Supabase geladenen Wochenplan neu berechnet.
   try{
-    const raw=localStorage.getItem('kochen_veg_prep_plan'); if(!raw)return '';
-    const data=JSON.parse(raw); if(!data?.html)return '';
-    return `<details style="margin:10px 0 16px;background:#fffdf7;border:1px solid #e1dacb;border-radius:18px;padding:12px 14px"><summary style="font-weight:900;cursor:pointer">🥕 Gemüse-Meal-Prep anzeigen</summary><div style="margin-top:12px">${data.html}</div></details>`;
+    const draft=currentPlanDraftForVegPrep(); if(!draft)return '';
+    return `<details style="margin:10px 0 16px;background:#fffdf7;border:1px solid #e1dacb;border-radius:18px;padding:12px 14px"><summary style="font-weight:900;cursor:pointer">🥕 Gemüse-Meal-Prep anzeigen</summary><div style="margin-top:12px">${vegetablePrepPlanHtml(draft)}</div></details>`;
   }catch(e){return ''}
 }
 function plannerMealMeta(day,meal,index){
